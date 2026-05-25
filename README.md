@@ -1,4 +1,4 @@
-# cursor-specific-deploy
+# polkajam-specific-deploy
 
 A tiny web UI to dispatch the parameterized Nomad job defined in `test.hcl`
 (`multichain-testing`) with custom meta values.
