@@ -14,7 +14,7 @@ impl StressPaths {
     pub fn new(app_dir: PathBuf) -> Self {
         Self {
             validators: app_dir.join("stress-net/validators.hcl"),
-            builders: app_dir.join("stress-net/buiders.hcl"),
+            builders: app_dir.join("stress-net/builders.hcl"),
             remainder: app_dir.join("stress-net/.validators-remainder.hcl"),
             app_dir,
         }

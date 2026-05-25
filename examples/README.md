@@ -26,7 +26,7 @@ export PATH="$PWD/server/target/release:$PATH"
 |--------|----------------|
 | `options.sh` | Show job specs and the 1023-validator dispatch plan |
 | `register-validators.sh` | `nomad job run stress-net/validators.hcl` |
-| `register-builders.sh` | `nomad job run stress-net/buiders.hcl` |
+| `register-builders.sh` | `nomad job run stress-net/builders.hcl` |
 | `dispatch-group.sh` | Dispatch a single validator group (group 1) |
 | `run-target-6-dry-run.sh` | Preview deploying exactly 6 validators |
 | `run-target-1023-dry-run.sh` | Preview full stress-net target (1023 validators) |

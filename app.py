@@ -17,7 +17,7 @@ VAL7_DEFAULT_JOB_NAME = "polkajam-testnet-validators"
 
 STRESS_DIR = APP_DIR / "stress-net"
 STRESS_VALIDATORS = STRESS_DIR / "validators.hcl"
-STRESS_BUILDERS = STRESS_DIR / "buiders.hcl"
+STRESS_BUILDERS = STRESS_DIR / "builders.hcl"
 STRESS_VALIDATORS_REMAINDER = STRESS_DIR / ".validators-remainder.hcl"
 
 TARGET_VALIDATORS = 1023
