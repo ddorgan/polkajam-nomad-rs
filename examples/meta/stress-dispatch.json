@@ -1,0 +1,6 @@
+{
+  "role": "validators",
+  "node_update": "true",
+  "node_clean": "true",
+  "jam_url": "http://192.168.20.0/arkpar/polkajam/stress-test"
+}

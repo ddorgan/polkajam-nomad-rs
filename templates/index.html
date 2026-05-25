@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deploy {{ hcl_file }} – {{ job_name }}</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #121826;
+      --panel-2: #1a2233;
+      --border: #243049;
+      --text: #e6edf7;
+      --muted: #8a97b1;
+      --accent: #6aa5ff;
+      --accent-2: #4f8ef7;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: radial-gradient(1200px 600px at 20% -10%, #182238 0%, var(--bg) 60%);
+      color: var(--text);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      min-height: 100%;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+    h1 .pill {
+      display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--muted); font-size: 12px; font-weight: 500;
+    }
+    .status {
+      display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(52,211,153,.15); }
+    .dot.warn { background: var(--warn); }
+    .dot.err { background: var(--err); }
+
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 18px 14px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 30px rgba(0,0,0,0.25);
+    }
+    .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+    @media (max-width: 600px) { .fields { grid-template-columns: 1fr; } }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+    .field label .hint { font-weight: 400; font-size: 11px; opacity: 0.7; }
+    .field input[type=text],
+    .field input[type=number] {
+      width: 100%; background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; font: 13px var(--mono); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(79,142,247,0.18); }
+    .field input.dirty { border-color: var(--accent); }
+
+    .switch { display: inline-flex; align-items: center; gap: 10px; }
+    .switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .switch .track {
+      width: 38px; height: 22px; background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 999px; position: relative; transition: background .15s;
+    }
+    .switch .thumb {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--muted); transition: transform .15s, background .15s;
+    }
+    .switch input:checked + .track { background: rgba(79,142,247,0.25); border-color: var(--accent-2); }
+    .switch input:checked + .track .thumb { transform: translateX(16px); background: var(--accent); }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    button {
+      appearance: none; border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+      padding: 9px 14px; border-radius: 8px; font: 500 13px/1 inherit; cursor: pointer;
+      transition: transform .05s, border-color .15s, background .15s;
+    }
+    button:hover { border-color: var(--accent-2); }
+    button:active { transform: translateY(1px); }
+    button.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%); border-color: transparent; color: #0b1020; font-weight: 600; }
+    button.ghost { background: transparent; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .meta-row { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; }
+    .kbd { font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; }
+
+    .nav { display: flex; gap: 10px; align-items: center; }
+    .nav a { color: var(--muted); font-size: 13px; padding: 6px 10px; border-radius: 8px; }
+    .nav a.active { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+
+    .out {
+      background: #06090f; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; font: 12px/1.55 var(--mono); color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-word; max-height: 460px; overflow: auto;
+    }
+    .out .cmd { color: var(--accent); }
+    .out .ok { color: var(--ok); }
+    .out .err { color: var(--err); }
+    .out .muted { color: var(--muted); }
+
+    .footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Deploy <span class="pill">{{ hcl_file }}</span></h1>
+        <div class="meta-row" style="margin-top:6px">
+          <span>job: <span class="kbd">{{ job_name }}</span></span>
+          <span>•</span>
+          <span id="nomad-addr">nomad: <span class="kbd">loading…</span></span>
+        </div>
+      </div>
+      <div class="nav">
+        <a class="active" href="/">test.hcl</a>
+        <a href="/val7">val7.hcl</a>
+        <a href="/stress">stress-net</a>
+        <div class="status" style="margin-left:8px">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text">checking…</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Meta options</h2>
+        <form id="form" autocomplete="off">
+          <div class="fields" id="fields"></div>
+          <div class="actions">
+            <button type="button" class="primary" id="btn-dispatch">Dispatch</button>
+            <button type="button" id="btn-register">Register job</button>
+            <button type="button" class="ghost" id="btn-reset">Reset to defaults</button>
+            <label class="switch" style="margin-left:auto" title="Return immediately instead of streaming logs">
+              <input type="checkbox" id="detach" checked />
+              <span class="track"><span class="thumb"></span></span>
+              <span style="font-size:12px;color:var(--muted)">-detach</span>
+            </label>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Output</h2>
+        <div class="out" id="out"><span class="muted">No commands run yet. Click <b>Register job</b> first if this is the first deploy, then <b>Dispatch</b>.</span></div>
+        <div class="footer">
+          Backend runs <span class="kbd">nomad job run</span> / <span class="kbd">nomad job dispatch</span> against <span class="kbd" id="footer-addr">$NOMAD_ADDR</span>.
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const fieldsEl = $("#fields");
+const outEl = $("#out");
+let DEFAULTS = {};
+let OPTIONAL = [];
+
+function fieldKind(key, value) {
+  if (typeof value === "boolean") return "bool";
+  if (typeof value === "number") return "number";
+  if (key.endsWith("_count") || key.endsWith("_group") || key.endsWith("_ip_count")) return "number";
+  return "text";
+}
+
+function renderFields() {
+  fieldsEl.innerHTML = "";
+  const seen = new Set();
+  const order = [...OPTIONAL];
+  for (const k of Object.keys(DEFAULTS)) if (!order.includes(k)) order.push(k);
+  for (const key of order) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const defVal = DEFAULTS[key];
+    const kind = fieldKind(key, defVal);
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const label = document.createElement("label");
+    label.innerHTML = `<span>${key}</span><span class="hint">${OPTIONAL.includes(key) ? "optional" : "from meta {}"}</span>`;
+    wrap.appendChild(label);
+
+    if (kind === "bool") {
+      const sw = document.createElement("label");
+      sw.className = "switch";
+      sw.innerHTML = `<input type="checkbox" data-key="${key}" data-kind="bool" ${defVal ? "checked" : ""}/>
+        <span class="track"><span class="thumb"></span></span>
+        <span style="font-size:12px;color:var(--muted)" data-bool-label>${defVal}</span>`;
+      const cb = sw.querySelector("input");
+      const lbl = sw.querySelector("[data-bool-label]");
+      cb.addEventListener("change", () => { lbl.textContent = cb.checked; });
+      wrap.appendChild(sw);
+    } else {
+      const input = document.createElement("input");
+      input.type = kind === "number" ? "number" : "text";
+      input.dataset.key = key;
+      input.dataset.kind = kind;
+      input.dataset.default = defVal ?? "";
+      input.value = defVal ?? "";
+      input.addEventListener("input", () => {
+        input.classList.toggle("dirty", String(input.value) !== String(input.dataset.default));
+      });
+      wrap.appendChild(input);
+    }
+    fieldsEl.appendChild(wrap);
+  }
+}
+
+function collectMeta() {
+  const meta = {};
+  for (const el of fieldsEl.querySelectorAll("[data-key]")) {
+    const key = el.dataset.key;
+    const kind = el.dataset.kind;
+    if (kind === "bool") meta[key] = el.checked ? "true" : "false";
+    else if (kind === "number") { if (el.value !== "") meta[key] = el.value; }
+    else if (el.value !== "") meta[key] = el.value;
+  }
+  return meta;
+}
+
+function setOut(html) { outEl.innerHTML = html; outEl.scrollTop = 0; }
+
+function fmtResult(res) {
+  const rc = res.returncode;
+  const cls = rc === 0 ? "ok" : "err";
+  const head = `<span class="cmd">$ ${escapeHtml(res.cmd || "")}</span>\n` +
+               `<span class="${cls}">exit ${rc}</span>\n\n`;
+  const out = res.stdout ? escapeHtml(res.stdout) + "\n" : "";
+  const err = res.stderr ? `<span class="err">${escapeHtml(res.stderr)}</span>` : "";
+  return head + out + err;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"})[c]);
+}
+
+async function loadOptions() {
+  const r = await fetch("/api/options");
+  const data = await r.json();
+  DEFAULTS = data.defaults || {};
+  OPTIONAL = data.optional || [];
+  $("#nomad-addr").innerHTML = `nomad: <span class="kbd">${data.nomad_addr}</span>`;
+  $("#footer-addr").textContent = data.nomad_addr;
+  renderFields();
+  refreshStatus();
+}
+
+async function refreshStatus() {
+  const dot = $("#status-dot"), txt = $("#status-text");
+  dot.className = "dot warn"; txt.textContent = "checking…";
+  try {
+    const r = await fetch("/api/status");
+    const data = await r.json();
+    if (data.ok) { dot.className = "dot ok"; txt.textContent = "job registered"; }
+    else { dot.className = "dot err"; txt.textContent = "not registered"; }
+  } catch { dot.className = "dot err"; txt.textContent = "nomad unreachable"; }
+}
+
+async function postJson(url, body) {
+  const r = await fetch(url, { method: "POST", headers: {"content-type":"application/json"}, body: JSON.stringify(body || {}) });
+  return r.json();
+}
+
+async function withBusy(btn, fn) {
+  const prev = btn.textContent;
+  btn.disabled = true; btn.textContent = "Running…";
+  try { return await fn(); } finally { btn.disabled = false; btn.textContent = prev; }
+}
+
+$("#btn-register").addEventListener("click", async (e) => {
+  await withBusy(e.target, async () => {
+    setOut(`<span class="muted">Running nomad job run…</span>`);
+    const res = await postJson("/api/register");
+    setOut(fmtResult(res));
+    refreshStatus();
+  });
+});
+
+$("#btn-dispatch").addEventListener("click", async (e) => {
+  await withBusy(e.target, async () => {
+    const meta = collectMeta();
+    setOut(`<span class="muted">Dispatching with ${Object.keys(meta).length} meta value(s)…</span>`);
+    const res = await postJson("/api/dispatch", { meta, detach: $("#detach").checked });
+    setOut(fmtResult(res));
+  });
+});
+
+$("#btn-reset").addEventListener("click", () => renderFields());
+
+loadOptions();
+</script>
+</body>
+</html>

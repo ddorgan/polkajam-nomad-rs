@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deploy {{ job_file }}</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #121826;
+      --panel-2: #1a2233;
+      --border: #243049;
+      --text: #e6edf7;
+      --muted: #8a97b1;
+      --accent: #6aa5ff;
+      --accent-2: #4f8ef7;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: radial-gradient(1200px 600px at 20% -10%, #182238 0%, var(--bg) 60%);
+      color: var(--text);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      min-height: 100%;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 24px 80px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      margin-bottom: 22px;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+    h1 .pill {
+      display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--muted); font-size: 12px; font-weight: 500;
+    }
+    .nav { display: flex; gap: 10px; align-items: center; }
+    .nav a { color: var(--muted); font-size: 13px; padding: 6px 10px; border-radius: 8px; }
+    .nav a.active { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(52,211,153,.15); }
+    .dot.warn { background: var(--warn); }
+    .dot.err { background: var(--err); }
+
+    .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 20px; }
+    @media (max-width: 1080px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 16px 14px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 30px rgba(0,0,0,0.25);
+    }
+    .card h2 {
+      font-size: 12px; margin: 0 0 12px; color: var(--muted);
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .card h2 .sub {
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      text-transform: none; letter-spacing: 0; opacity: .8;
+    }
+
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+    @media (max-width: 720px) { .fields { grid-template-columns: 1fr; } }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field.wide { grid-column: 1 / -1; }
+    .field label {
+      font-size: 11px; color: var(--muted);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .field label .hint { font-weight: 400; font-size: 10px; opacity: 0.7; }
+    .field input[type=text],
+    .field input[type=number] {
+      width: 100%; background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 9px; font: 12.5px var(--mono); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(79,142,247,0.18); }
+    .field input.dirty { border-color: var(--accent); }
+
+    .switch { display: inline-flex; align-items: center; gap: 10px; position: relative; }
+    .switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .switch .track {
+      width: 38px; height: 22px; background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 999px; position: relative; transition: background .15s;
+    }
+    .switch .thumb {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--muted); transition: transform .15s, background .15s;
+    }
+    .switch input:checked + .track { background: rgba(79,142,247,0.25); border-color: var(--accent-2); }
+    .switch input:checked + .track .thumb { transform: translateX(16px); background: var(--accent); }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+    button {
+      appearance: none; border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+      padding: 8px 13px; border-radius: 8px; font: 500 13px/1 inherit; cursor: pointer;
+      transition: transform .05s, border-color .15s, background .15s;
+    }
+    button:hover { border-color: var(--accent-2); }
+    button:active { transform: translateY(1px); }
+    button.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%); border-color: transparent; color: #0b1020; font-weight: 600; }
+    button.ghost { background: transparent; }
+    button.danger { color: var(--err); border-color: rgba(248,113,113,0.35); }
+    button.danger:hover { border-color: var(--err); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.small { padding: 4px 9px; font-size: 12px; border-radius: 6px; }
+
+    .meta-row { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+    .kbd { font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; }
+
+    .vtable { display: grid; grid-template-columns: 30px 1.1fr 2fr 32px; gap: 6px 8px; align-items: center; }
+    .vtable .head { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; padding: 2px 4px; }
+    .vtable .idx { color: var(--muted); font: 12px var(--mono); padding-left: 4px; }
+    .vtable input {
+      width: 100%; background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 6px 8px; font: 12px var(--mono); outline: none;
+    }
+    .vtable input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(79,142,247,0.18); }
+    .vtable .row-del { display: flex; justify-content: flex-end; }
+
+    .out {
+      background: #06090f; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; font: 12px/1.55 var(--mono); color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-word; max-height: 520px; overflow: auto;
+    }
+    .out .cmd { color: var(--accent); }
+    .out .ok { color: var(--ok); }
+    .out .err { color: var(--err); }
+    .out .muted { color: var(--muted); }
+
+    .preview {
+      background: #06090f; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; font: 12px/1.55 var(--mono); color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-all; max-height: 220px; overflow: auto;
+    }
+
+    .footer { margin-top: 14px; color: var(--muted); font-size: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    details > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
+    details[open] > summary { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Deploy <span class="pill">{{ job_file }}</span></h1>
+        <div class="meta-row" style="margin-top:6px">
+          <span>job: <span class="kbd" id="job-name">…</span></span>
+          <span>•</span>
+          <span>nomad: <span class="kbd" id="nomad-addr">loading…</span></span>
+          <span>•</span>
+          <span><span id="validator-count">0</span> validators</span>
+        </div>
+      </div>
+      <div class="nav">
+        <a href="/">test.hcl</a>
+        <a class="active" href="/val7">val7.hcl</a>
+        <a href="/stress">stress-net</a>
+        <div class="status" style="margin-left:8px">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text">checking…</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section>
+        <div class="card" style="margin-bottom:16px">
+          <h2>
+            <span>Meta options</span>
+            <span class="sub">parameterized job: <span class="kbd">meta_optional</span> + <span class="kbd">meta {}</span></span>
+          </h2>
+          <form id="form" autocomplete="off">
+            <div class="fields" id="fields"></div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>
+            <span>Validators</span>
+            <span class="sub">rows joined into <span class="kbd">peer_ids</span> / <span class="kbd">client_ips</span> on dispatch</span>
+          </h2>
+          <div class="vtable" id="vtable">
+            <div class="head">#</div>
+            <div class="head">Client IP</div>
+            <div class="head">Peer ID</div>
+            <div></div>
+          </div>
+          <div class="actions">
+            <button type="button" id="btn-add">+ Add validator</button>
+            <button type="button" class="ghost" id="btn-reset">Reset to defaults</button>
+            <span style="flex:1"></span>
+            <button type="button" id="btn-register">Register job</button>
+            <button type="button" class="primary" id="btn-dispatch">Dispatch</button>
+            <label class="switch" style="margin-left:8px" title="Return immediately instead of streaming logs">
+              <input type="checkbox" id="detach" checked />
+              <span class="track"><span class="thumb"></span></span>
+              <span style="font-size:12px;color:var(--muted)">-detach</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="card" style="margin-bottom:16px">
+          <h2>
+            <span>Output</span>
+            <span class="sub">runs <span class="kbd">nomad job run</span> / <span class="kbd">nomad job dispatch</span></span>
+          </h2>
+          <div class="out" id="out"><span class="muted">No commands run yet. <b>Register job</b> first if this is the initial deploy, then <b>Dispatch</b>.</span></div>
+          <div class="footer">
+            Backend uses <span class="kbd" id="footer-addr">$NOMAD_ADDR</span>.
+          </div>
+        </div>
+
+        <details class="card" open>
+          <summary>Dispatch command preview</summary>
+          <div class="preview" id="preview" style="margin-top:10px">(edit any field)</div>
+        </details>
+      </section>
+    </div>
+  </div>
+
+<script>
+const $  = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+const SPECIAL_KEYS = new Set(["peer_ids", "client_ips"]);
+let DEFAULTS = {};
+let OPTIONAL = [];
+let JOB_NAME = "";
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+}
+
+function fieldKind(key, value) {
+  if (typeof value === "boolean") return "bool";
+  if (typeof value === "number") return "number";
+  if (key.endsWith("_count") || key.endsWith("_port") || key === "cpu" || key === "memory_mb") return "number";
+  return "text";
+}
+
+function renderFields() {
+  const root = $("#fields");
+  root.innerHTML = "";
+  const seen = new Set();
+  const order = [...OPTIONAL];
+  for (const k of Object.keys(DEFAULTS)) if (!order.includes(k)) order.push(k);
+
+  for (const key of order) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (SPECIAL_KEYS.has(key)) continue;
+    const defVal = DEFAULTS[key];
+    const kind = fieldKind(key, defVal);
+    const wrap = document.createElement("div");
+    wrap.className = "field" + (key === "jam_url" ? " wide" : "");
+    const label = document.createElement("label");
+    label.innerHTML = `<span>${escapeHtml(key)}</span><span class="hint">${OPTIONAL.includes(key) ? "meta_optional" : "from meta {}"}</span>`;
+    wrap.appendChild(label);
+
+    if (kind === "bool") {
+      const sw = document.createElement("label");
+      sw.className = "switch";
+      sw.innerHTML = `<input type="checkbox" data-key="${escapeHtml(key)}" data-kind="bool" ${defVal ? "checked" : ""}/>
+        <span class="track"><span class="thumb"></span></span>
+        <span style="font-size:12px;color:var(--muted)" data-bool-label>${defVal}</span>`;
+      const cb = sw.querySelector("input");
+      const lbl = sw.querySelector("[data-bool-label]");
+      cb.addEventListener("change", () => { lbl.textContent = cb.checked; updatePreview(); });
+      wrap.appendChild(sw);
+    } else {
+      const input = document.createElement("input");
+      input.type = kind === "number" ? "number" : "text";
+      input.dataset.key = key;
+      input.dataset.kind = kind;
+      input.dataset.default = defVal ?? "";
+      input.value = defVal ?? "";
+      input.addEventListener("input", () => {
+        input.classList.toggle("dirty", String(input.value) !== String(input.dataset.default));
+        updatePreview();
+      });
+      wrap.appendChild(input);
+    }
+    root.appendChild(wrap);
+  }
+}
+
+function defaultValidatorRows() {
+  const peers = String(DEFAULTS.peer_ids ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  const ips   = String(DEFAULTS.client_ips ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  const n = Math.max(peers.length, ips.length);
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    rows.push({ peer_id: peers[i] ?? "", client_ip: ips[i] ?? "" });
+  }
+  return rows;
+}
+
+function renderValidators(rows) {
+  const table = $("#vtable");
+  $$("#vtable .row", table).forEach(el => el.remove());
+  $$("#vtable [data-rid]", table).forEach(el => el.remove());
+
+  rows.forEach((r, i) => {
+    const idx = document.createElement("div");
+    idx.className = "idx"; idx.dataset.rid = i;
+    idx.textContent = i;
+
+    const ip = document.createElement("input");
+    ip.type = "text"; ip.dataset.rid = i; ip.dataset.col = "client_ip";
+    ip.placeholder = "192.168.20.X";
+    ip.value = r.client_ip ?? "";
+
+    const peer = document.createElement("input");
+    peer.type = "text"; peer.dataset.rid = i; peer.dataset.col = "peer_id";
+    peer.placeholder = "e…";
+    peer.value = r.peer_id ?? "";
+
+    const del = document.createElement("div");
+    del.className = "row-del"; del.dataset.rid = i;
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "small danger";
+    btn.textContent = "×";
+    btn.title = "Remove";
+    btn.addEventListener("click", () => {
+      const current = collectValidators();
+      current.splice(i, 1);
+      renderValidators(current);
+      updateCount();
+      updatePreview();
+    });
+    del.appendChild(btn);
+
+    ip.addEventListener("input", updatePreview);
+    peer.addEventListener("input", updatePreview);
+
+    table.appendChild(idx);
+    table.appendChild(ip);
+    table.appendChild(peer);
+    table.appendChild(del);
+  });
+  updateCount();
+}
+
+function collectValidators() {
+  const rows = [];
+  const ips  = $$('#vtable input[data-col="client_ip"]').map(el => el.value.trim());
+  const pids = $$('#vtable input[data-col="peer_id"]').map(el => el.value.trim());
+  const n = Math.max(ips.length, pids.length);
+  for (let i = 0; i < n; i++) rows.push({ client_ip: ips[i] ?? "", peer_id: pids[i] ?? "" });
+  return rows;
+}
+
+function updateCount() {
+  $("#validator-count").textContent = $$('#vtable input[data-col="peer_id"]').length;
+}
+
+function collectMeta() {
+  const meta = {};
+  for (const el of $$("#fields [data-key]")) {
+    const key = el.dataset.key;
+    const kind = el.dataset.kind;
+    if (kind === "bool") meta[key] = el.checked ? "true" : "false";
+    else if (el.value !== "") meta[key] = el.value;
+  }
+  const rows = collectValidators();
+  const peers = rows.map(r => r.peer_id).filter(Boolean);
+  const ips   = rows.map(r => r.client_ip).filter(Boolean);
+  if (peers.length) meta.peer_ids   = peers.join(",");
+  if (ips.length)   meta.client_ips = ips.join(",");
+  return meta;
+}
+
+function dispatchCmd(meta, detach) {
+  const parts = ["nomad", "job", "dispatch"];
+  if (detach) parts.push("-detach");
+  for (const [k, v] of Object.entries(meta)) {
+    if (v === null || v === "") continue;
+    const val = String(v);
+    const quoted = /[\s"'$`,]/.test(val) ? `'${val.replace(/'/g, "'\\''")}'` : val;
+    parts.push("-meta", `${k}=${quoted}`);
+  }
+  parts.push(JOB_NAME);
+  return parts.join(" ");
+}
+
+function updatePreview() {
+  $("#preview").textContent = dispatchCmd(collectMeta(), $("#detach").checked);
+}
+
+function fmtResult(res) {
+  if (res.error) return `<span class="err">${escapeHtml(res.error)}</span>`;
+  const rc = res.returncode;
+  const cls = rc === 0 ? "ok" : "err";
+  const head = `<span class="cmd">$ ${escapeHtml(res.cmd || "")}</span>\n` +
+               `<span class="${cls}">exit ${rc}</span>\n\n`;
+  const out = res.stdout ? escapeHtml(res.stdout) + "\n" : "";
+  const err = res.stderr ? `<span class="err">${escapeHtml(res.stderr)}</span>` : "";
+  return head + out + err;
+}
+
+function setOut(html) { $("#out").innerHTML = html; $("#out").scrollTop = 0; }
+
+async function postJson(url, body) {
+  const r = await fetch(url, { method: "POST", headers: {"content-type":"application/json"}, body: JSON.stringify(body || {}) });
+  return r.json();
+}
+
+async function withBusy(btn, fn) {
+  const prev = btn.textContent;
+  btn.disabled = true; btn.textContent = "Running…";
+  try { return await fn(); } finally { btn.disabled = false; btn.textContent = prev; }
+}
+
+async function loadOptions() {
+  const r = await fetch("/api/val7/options");
+  const data = await r.json();
+  if (data.error) { setOut(`<span class="err">${escapeHtml(data.error)}</span>`); return; }
+  DEFAULTS = data.defaults || {};
+  OPTIONAL = data.optional || [];
+  JOB_NAME = data.job_name || "polkajam-testnet-validators";
+  $("#job-name").textContent = JOB_NAME;
+  $("#nomad-addr").textContent = data.nomad_addr;
+  $("#footer-addr").textContent = data.nomad_addr;
+  renderFields();
+  renderValidators(defaultValidatorRows());
+  updatePreview();
+  refreshStatus();
+}
+
+async function refreshStatus() {
+  const dot = $("#status-dot"), txt = $("#status-text");
+  dot.className = "dot warn"; txt.textContent = "checking…";
+  try {
+    const r = await fetch("/api/val7/status");
+    const data = await r.json();
+    if (data.ok) { dot.className = "dot ok"; txt.textContent = "job registered"; }
+    else { dot.className = "dot err"; txt.textContent = "not registered"; }
+  } catch { dot.className = "dot err"; txt.textContent = "nomad unreachable"; }
+}
+
+$("#btn-add").addEventListener("click", () => {
+  const rows = collectValidators();
+  rows.push({ peer_id: "", client_ip: "" });
+  renderValidators(rows);
+  updatePreview();
+});
+
+$("#btn-reset").addEventListener("click", () => {
+  renderFields();
+  renderValidators(defaultValidatorRows());
+  updatePreview();
+});
+
+$("#detach").addEventListener("change", updatePreview);
+
+$("#btn-register").addEventListener("click", async (e) => {
+  await withBusy(e.target, async () => {
+    setOut(`<span class="muted">Running nomad job run val7.hcl…</span>`);
+    const res = await postJson("/api/val7/register");
+    setOut(fmtResult(res));
+    refreshStatus();
+  });
+});
+
+$("#btn-dispatch").addEventListener("click", async (e) => {
+  await withBusy(e.target, async () => {
+    const meta = collectMeta();
+    setOut(`<span class="muted">Dispatching ${Object.keys(meta).length} meta value(s)…</span>`);
+    const res = await postJson("/api/val7/dispatch", { meta, detach: $("#detach").checked });
+    setOut(fmtResult(res));
+    refreshStatus();
+  });
+});
+
+loadOptions();
+</script>
+</body>
+</html>

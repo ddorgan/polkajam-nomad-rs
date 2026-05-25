@@ -1,0 +1,1142 @@
+{
+  "Affinities": null,
+  "AllAtOnce": false,
+  "Constraints": null,
+  "ConsulNamespace": "",
+  "CreateIndex": 873976,
+  "Datacenters": [
+    "dc1"
+  ],
+  "DispatchIdempotencyToken": "",
+  "Dispatched": false,
+  "ID": "polkajam-testnet7-validators",
+  "JobModifyIndex": 874136,
+  "Meta": {
+    "jam_url": "http://192.168.20.0/chains/testnet7"
+  },
+  "ModifyIndex": 874138,
+  "Multiregion": null,
+  "Name": "polkajam-testnet7-validators",
+  "Namespace": "default",
+  "NodePool": "default",
+  "NomadTokenID": "6cae3cc5-fa37-5e4b-c2f8-f6caa809cac3",
+  "ParameterizedJob": null,
+  "ParentID": "",
+  "Payload": null,
+  "Periodic": null,
+  "Priority": 50,
+  "Region": "global",
+  "Spreads": null,
+  "Stable": true,
+  "Status": "dead",
+  "StatusDescription": "",
+  "Stop": true,
+  "SubmitTime": 1779598586856456000,
+  "TaskGroups": [
+    {
+      "Affinities": null,
+      "Constraints": [
+        {
+          "LTarget": "${meta.client_ip}",
+          "Operand": "=",
+          "RTarget": "192.168.20.1"
+        }
+      ],
+      "Consul": null,
+      "Count": 1,
+      "Disconnect": null,
+      "EphemeralDisk": {
+        "Migrate": false,
+        "SizeMB": 300,
+        "Sticky": false
+      },
+      "MaxClientDisconnect": null,
+      "Meta": null,
+      "Migrate": {
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000
+      },
+      "Name": "validator-0",
+      "Networks": null,
+      "PreventRescheduleOnLost": false,
+      "ReschedulePolicy": {
+        "Attempts": 0,
+        "Delay": 30000000000,
+        "DelayFunction": "exponential",
+        "Interval": 0,
+        "MaxDelay": 3600000000000,
+        "Unlimited": true
+      },
+      "RestartPolicy": {
+        "Attempts": 2,
+        "Delay": 15000000000,
+        "Interval": 1800000000000,
+        "Mode": "fail",
+        "RenderTemplates": false
+      },
+      "Scaling": null,
+      "Services": null,
+      "ShutdownDelay": null,
+      "Spreads": null,
+      "StopAfterClientDisconnect": null,
+      "Tasks": [
+        {
+          "Actions": null,
+          "Affinities": null,
+          "Artifacts": null,
+          "CSIPluginConfig": null,
+          "Config": {
+            "command": "bash",
+            "args": [
+              "local/start.sh"
+            ]
+          },
+          "Constraints": null,
+          "Consul": null,
+          "DispatchPayload": null,
+          "Driver": "exec",
+          "Env": {
+            "CHAIN_ID": "testnet7",
+            "VALIDATOR_INDEX": "0",
+            "PEER_ID": "e2rmtf2rdp2oqqntb7edcjqdko6iw3dzvyyqb4cyz5eczv6e455ga",
+            "NET_ADDR": "192.168.20.1:40000",
+            "JAM_URL": "http://192.168.20.0/chains",
+            "NOMAD_NAMESPACE": "default"
+          },
+          "Identities": null,
+          "Identity": {
+            "Audience": [
+              "nomadproject.io"
+            ],
+            "ChangeMode": "",
+            "ChangeSignal": "",
+            "Env": false,
+            "File": false,
+            "Filepath": "",
+            "Name": "default",
+            "ServiceName": "",
+            "TTL": 0
+          },
+          "KillSignal": "",
+          "KillTimeout": 5000000000,
+          "Kind": "",
+          "Leader": false,
+          "Lifecycle": null,
+          "LogConfig": {
+            "Disabled": false,
+            "MaxFileSizeMB": 10,
+            "MaxFiles": 5
+          },
+          "Meta": null,
+          "Name": "polkajam-validator",
+          "Resources": {
+            "CPU": 100,
+            "Cores": 0,
+            "Devices": null,
+            "DiskMB": 0,
+            "IOPS": 0,
+            "MemoryMB": 3192,
+            "MemoryMaxMB": 0,
+            "NUMA": null,
+            "Networks": null,
+            "SecretsMB": 0
+          },
+          "RestartPolicy": {
+            "Attempts": 2,
+            "Delay": 15000000000,
+            "Interval": 1800000000000,
+            "Mode": "fail",
+            "RenderTemplates": false
+          },
+          "ScalingPolicies": null,
+          "Schedule": null,
+          "Secrets": null,
+          "Services": null,
+          "ShutdownDelay": 0,
+          "Templates": [
+            {
+              "ChangeMode": "restart",
+              "ChangeScript": null,
+              "ChangeSignal": "",
+              "DestPath": "local/start.sh",
+              "EmbeddedTmpl": "#!/usr/bin/env bash\nset -x\nmkdir -p \"local/${CHAIN_ID}/keys\"\n\nSEED_INDEX=$(printf \"%03d\" \"$VALIDATOR_INDEX\")\ncurl -fsSL -o \"local/${CHAIN_ID}/keys/val.seed\" \"${NOMAD_META_jam_url}/keys/val_${SEED_INDEX}.seed\"\ncurl -fsSL -o local/polkajam   \"${NOMAD_META_jam_url}/polkajam\"\ncurl -fsSL -o local/spec.json  \"${NOMAD_META_jam_url}/spec.json\"\nchmod +x ./local/polkajam\n\nPORT=$(echo \"${NET_ADDR}\" | cut -d: -f2)\n./local/polkajam --chain=local/spec.json -c local/ run \\\n  -d \"/data/${CHAIN_ID}/${VALIDATOR_INDEX}\" \\\n  --rpc \\\n  --rpc-port \"$(( PORT + 4000 ))\" \\\n  --port \"${PORT}\" \\\n  --peer-id \"${PEER_ID}\" \\\n  --external-ip 0.0.0.0\n",
+              "Envvars": false,
+              "ErrMissingKey": false,
+              "Gid": null,
+              "LeftDelim": "{{",
+              "Once": false,
+              "Perms": "0755",
+              "RightDelim": "}}",
+              "SourcePath": "",
+              "Splay": 5000000000,
+              "Uid": null,
+              "VaultGrace": 0,
+              "Wait": null
+            }
+          ],
+          "User": "",
+          "Vault": null,
+          "VolumeMounts": [
+            {
+              "Destination": "/data",
+              "PropagationMode": "private",
+              "ReadOnly": false,
+              "SELinuxLabel": "",
+              "Volume": "data"
+            }
+          ]
+        }
+      ],
+      "Update": {
+        "AutoPromote": false,
+        "AutoRevert": false,
+        "Canary": 0,
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000,
+        "ProgressDeadline": 600000000000,
+        "Stagger": 30000000000
+      },
+      "Volumes": {
+        "data": {
+          "AccessMode": "",
+          "AttachmentMode": "",
+          "MountOptions": null,
+          "Name": "data",
+          "PerAlloc": false,
+          "ReadOnly": false,
+          "Source": "disk1-local",
+          "Sticky": false,
+          "Type": "host"
+        }
+      }
+    },
+    {
+      "Affinities": null,
+      "Constraints": [
+        {
+          "LTarget": "${meta.client_ip}",
+          "Operand": "=",
+          "RTarget": "192.168.20.2"
+        }
+      ],
+      "Consul": null,
+      "Count": 1,
+      "Disconnect": null,
+      "EphemeralDisk": {
+        "Migrate": false,
+        "SizeMB": 300,
+        "Sticky": false
+      },
+      "MaxClientDisconnect": null,
+      "Meta": null,
+      "Migrate": {
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000
+      },
+      "Name": "validator-1",
+      "Networks": null,
+      "PreventRescheduleOnLost": false,
+      "ReschedulePolicy": {
+        "Attempts": 0,
+        "Delay": 30000000000,
+        "DelayFunction": "exponential",
+        "Interval": 0,
+        "MaxDelay": 3600000000000,
+        "Unlimited": true
+      },
+      "RestartPolicy": {
+        "Attempts": 2,
+        "Delay": 15000000000,
+        "Interval": 1800000000000,
+        "Mode": "fail",
+        "RenderTemplates": false
+      },
+      "Scaling": null,
+      "Services": null,
+      "ShutdownDelay": null,
+      "Spreads": null,
+      "StopAfterClientDisconnect": null,
+      "Tasks": [
+        {
+          "Actions": null,
+          "Affinities": null,
+          "Artifacts": null,
+          "CSIPluginConfig": null,
+          "Config": {
+            "args": [
+              "local/start.sh"
+            ],
+            "command": "bash"
+          },
+          "Constraints": null,
+          "Consul": null,
+          "DispatchPayload": null,
+          "Driver": "exec",
+          "Env": {
+            "PEER_ID": "eljk26fn5rqkjz6rflqxd7uffslj323o5x4ngfrz75zv6xryeldza",
+            "NET_ADDR": "192.168.20.2:40001",
+            "JAM_URL": "http://192.168.20.0/chains",
+            "NOMAD_NAMESPACE": "default",
+            "CHAIN_ID": "testnet7",
+            "VALIDATOR_INDEX": "1"
+          },
+          "Identities": null,
+          "Identity": {
+            "Audience": [
+              "nomadproject.io"
+            ],
+            "ChangeMode": "",
+            "ChangeSignal": "",
+            "Env": false,
+            "File": false,
+            "Filepath": "",
+            "Name": "default",
+            "ServiceName": "",
+            "TTL": 0
+          },
+          "KillSignal": "",
+          "KillTimeout": 5000000000,
+          "Kind": "",
+          "Leader": false,
+          "Lifecycle": null,
+          "LogConfig": {
+            "Disabled": false,
+            "MaxFileSizeMB": 10,
+            "MaxFiles": 5
+          },
+          "Meta": null,
+          "Name": "polkajam-validator",
+          "Resources": {
+            "CPU": 100,
+            "Cores": 0,
+            "Devices": null,
+            "DiskMB": 0,
+            "IOPS": 0,
+            "MemoryMB": 3192,
+            "MemoryMaxMB": 0,
+            "NUMA": null,
+            "Networks": null,
+            "SecretsMB": 0
+          },
+          "RestartPolicy": {
+            "Attempts": 2,
+            "Delay": 15000000000,
+            "Interval": 1800000000000,
+            "Mode": "fail",
+            "RenderTemplates": false
+          },
+          "ScalingPolicies": null,
+          "Schedule": null,
+          "Secrets": null,
+          "Services": null,
+          "ShutdownDelay": 0,
+          "Templates": [
+            {
+              "ChangeMode": "restart",
+              "ChangeScript": null,
+              "ChangeSignal": "",
+              "DestPath": "local/start.sh",
+              "EmbeddedTmpl": "#!/usr/bin/env bash\nset -x\nmkdir -p \"local/${CHAIN_ID}/keys\"\n\nSEED_INDEX=$(printf \"%03d\" \"$VALIDATOR_INDEX\")\ncurl -fsSL -o \"local/${CHAIN_ID}/keys/val.seed\" \"${NOMAD_META_jam_url}/keys/val_${SEED_INDEX}.seed\"\ncurl -fsSL -o local/polkajam   \"${NOMAD_META_jam_url}/polkajam\"\ncurl -fsSL -o local/spec.json  \"${NOMAD_META_jam_url}/spec.json\"\nchmod +x ./local/polkajam\n\nPORT=$(echo \"${NET_ADDR}\" | cut -d: -f2)\n./local/polkajam --chain=local/spec.json -c local/ run \\\n  -d \"/data/${CHAIN_ID}/${VALIDATOR_INDEX}\" \\\n  --rpc \\\n  --rpc-port \"$(( PORT + 4000 ))\" \\\n  --port \"${PORT}\" \\\n  --peer-id \"${PEER_ID}\" \\\n  --external-ip 0.0.0.0\n",
+              "Envvars": false,
+              "ErrMissingKey": false,
+              "Gid": null,
+              "LeftDelim": "{{",
+              "Once": false,
+              "Perms": "0755",
+              "RightDelim": "}}",
+              "SourcePath": "",
+              "Splay": 5000000000,
+              "Uid": null,
+              "VaultGrace": 0,
+              "Wait": null
+            }
+          ],
+          "User": "",
+          "Vault": null,
+          "VolumeMounts": [
+            {
+              "Destination": "/data",
+              "PropagationMode": "private",
+              "ReadOnly": false,
+              "SELinuxLabel": "",
+              "Volume": "data"
+            }
+          ]
+        }
+      ],
+      "Update": {
+        "AutoPromote": false,
+        "AutoRevert": false,
+        "Canary": 0,
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000,
+        "ProgressDeadline": 600000000000,
+        "Stagger": 30000000000
+      },
+      "Volumes": {
+        "data": {
+          "AccessMode": "",
+          "AttachmentMode": "",
+          "MountOptions": null,
+          "Name": "data",
+          "PerAlloc": false,
+          "ReadOnly": false,
+          "Source": "disk1-local",
+          "Sticky": false,
+          "Type": "host"
+        }
+      }
+    },
+    {
+      "Affinities": null,
+      "Constraints": [
+        {
+          "LTarget": "${meta.client_ip}",
+          "Operand": "=",
+          "RTarget": "192.168.20.3"
+        }
+      ],
+      "Consul": null,
+      "Count": 1,
+      "Disconnect": null,
+      "EphemeralDisk": {
+        "Migrate": false,
+        "SizeMB": 300,
+        "Sticky": false
+      },
+      "MaxClientDisconnect": null,
+      "Meta": null,
+      "Migrate": {
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000
+      },
+      "Name": "validator-2",
+      "Networks": null,
+      "PreventRescheduleOnLost": false,
+      "ReschedulePolicy": {
+        "Attempts": 0,
+        "Delay": 30000000000,
+        "DelayFunction": "exponential",
+        "Interval": 0,
+        "MaxDelay": 3600000000000,
+        "Unlimited": true
+      },
+      "RestartPolicy": {
+        "Attempts": 2,
+        "Delay": 15000000000,
+        "Interval": 1800000000000,
+        "Mode": "fail",
+        "RenderTemplates": false
+      },
+      "Scaling": null,
+      "Services": null,
+      "ShutdownDelay": null,
+      "Spreads": null,
+      "StopAfterClientDisconnect": null,
+      "Tasks": [
+        {
+          "Actions": null,
+          "Affinities": null,
+          "Artifacts": null,
+          "CSIPluginConfig": null,
+          "Config": {
+            "command": "bash",
+            "args": [
+              "local/start.sh"
+            ]
+          },
+          "Constraints": null,
+          "Consul": null,
+          "DispatchPayload": null,
+          "Driver": "exec",
+          "Env": {
+            "PEER_ID": "eb6zr7xhohdif5reasu3ddv43jh4u77jfgc43xffcbhi3etk5f54b",
+            "NET_ADDR": "192.168.20.3:40002",
+            "JAM_URL": "http://192.168.20.0/chains",
+            "NOMAD_NAMESPACE": "default",
+            "CHAIN_ID": "testnet7",
+            "VALIDATOR_INDEX": "2"
+          },
+          "Identities": null,
+          "Identity": {
+            "Audience": [
+              "nomadproject.io"
+            ],
+            "ChangeMode": "",
+            "ChangeSignal": "",
+            "Env": false,
+            "File": false,
+            "Filepath": "",
+            "Name": "default",
+            "ServiceName": "",
+            "TTL": 0
+          },
+          "KillSignal": "",
+          "KillTimeout": 5000000000,
+          "Kind": "",
+          "Leader": false,
+          "Lifecycle": null,
+          "LogConfig": {
+            "Disabled": false,
+            "MaxFileSizeMB": 10,
+            "MaxFiles": 5
+          },
+          "Meta": null,
+          "Name": "polkajam-validator",
+          "Resources": {
+            "CPU": 100,
+            "Cores": 0,
+            "Devices": null,
+            "DiskMB": 0,
+            "IOPS": 0,
+            "MemoryMB": 3192,
+            "MemoryMaxMB": 0,
+            "NUMA": null,
+            "Networks": null,
+            "SecretsMB": 0
+          },
+          "RestartPolicy": {
+            "Attempts": 2,
+            "Delay": 15000000000,
+            "Interval": 1800000000000,
+            "Mode": "fail",
+            "RenderTemplates": false
+          },
+          "ScalingPolicies": null,
+          "Schedule": null,
+          "Secrets": null,
+          "Services": null,
+          "ShutdownDelay": 0,
+          "Templates": [
+            {
+              "ChangeMode": "restart",
+              "ChangeScript": null,
+              "ChangeSignal": "",
+              "DestPath": "local/start.sh",
+              "EmbeddedTmpl": "#!/usr/bin/env bash\nset -x\nmkdir -p \"local/${CHAIN_ID}/keys\"\n\nSEED_INDEX=$(printf \"%03d\" \"$VALIDATOR_INDEX\")\ncurl -fsSL -o \"local/${CHAIN_ID}/keys/val.seed\" \"${NOMAD_META_jam_url}/keys/val_${SEED_INDEX}.seed\"\ncurl -fsSL -o local/polkajam   \"${NOMAD_META_jam_url}/polkajam\"\ncurl -fsSL -o local/spec.json  \"${NOMAD_META_jam_url}/spec.json\"\nchmod +x ./local/polkajam\n\nPORT=$(echo \"${NET_ADDR}\" | cut -d: -f2)\n./local/polkajam --chain=local/spec.json -c local/ run \\\n  -d \"/data/${CHAIN_ID}/${VALIDATOR_INDEX}\" \\\n  --rpc \\\n  --rpc-port \"$(( PORT + 4000 ))\" \\\n  --port \"${PORT}\" \\\n  --peer-id \"${PEER_ID}\" \\\n  --external-ip 0.0.0.0\n",
+              "Envvars": false,
+              "ErrMissingKey": false,
+              "Gid": null,
+              "LeftDelim": "{{",
+              "Once": false,
+              "Perms": "0755",
+              "RightDelim": "}}",
+              "SourcePath": "",
+              "Splay": 5000000000,
+              "Uid": null,
+              "VaultGrace": 0,
+              "Wait": null
+            }
+          ],
+          "User": "",
+          "Vault": null,
+          "VolumeMounts": [
+            {
+              "Destination": "/data",
+              "PropagationMode": "private",
+              "ReadOnly": false,
+              "SELinuxLabel": "",
+              "Volume": "data"
+            }
+          ]
+        }
+      ],
+      "Update": {
+        "AutoPromote": false,
+        "AutoRevert": false,
+        "Canary": 0,
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000,
+        "ProgressDeadline": 600000000000,
+        "Stagger": 30000000000
+      },
+      "Volumes": {
+        "data": {
+          "AccessMode": "",
+          "AttachmentMode": "",
+          "MountOptions": null,
+          "Name": "data",
+          "PerAlloc": false,
+          "ReadOnly": false,
+          "Source": "disk1-local",
+          "Sticky": false,
+          "Type": "host"
+        }
+      }
+    },
+    {
+      "Affinities": null,
+      "Constraints": [
+        {
+          "LTarget": "${meta.client_ip}",
+          "Operand": "=",
+          "RTarget": "192.168.20.4"
+        }
+      ],
+      "Consul": null,
+      "Count": 1,
+      "Disconnect": null,
+      "EphemeralDisk": {
+        "Migrate": false,
+        "SizeMB": 300,
+        "Sticky": false
+      },
+      "MaxClientDisconnect": null,
+      "Meta": null,
+      "Migrate": {
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000
+      },
+      "Name": "validator-3",
+      "Networks": null,
+      "PreventRescheduleOnLost": false,
+      "ReschedulePolicy": {
+        "Attempts": 0,
+        "Delay": 30000000000,
+        "DelayFunction": "exponential",
+        "Interval": 0,
+        "MaxDelay": 3600000000000,
+        "Unlimited": true
+      },
+      "RestartPolicy": {
+        "Attempts": 2,
+        "Delay": 15000000000,
+        "Interval": 1800000000000,
+        "Mode": "fail",
+        "RenderTemplates": false
+      },
+      "Scaling": null,
+      "Services": null,
+      "ShutdownDelay": null,
+      "Spreads": null,
+      "StopAfterClientDisconnect": null,
+      "Tasks": [
+        {
+          "Actions": null,
+          "Affinities": null,
+          "Artifacts": null,
+          "CSIPluginConfig": null,
+          "Config": {
+            "args": [
+              "local/start.sh"
+            ],
+            "command": "bash"
+          },
+          "Constraints": null,
+          "Consul": null,
+          "DispatchPayload": null,
+          "Driver": "exec",
+          "Env": {
+            "NET_ADDR": "192.168.20.4:40003",
+            "JAM_URL": "http://192.168.20.0/chains",
+            "NOMAD_NAMESPACE": "default",
+            "CHAIN_ID": "testnet7",
+            "VALIDATOR_INDEX": "3",
+            "PEER_ID": "ekiklz4hj2m7rycoo3r7itp222ifieptl2kzuf5baxm4qaia7vevb"
+          },
+          "Identities": null,
+          "Identity": {
+            "Audience": [
+              "nomadproject.io"
+            ],
+            "ChangeMode": "",
+            "ChangeSignal": "",
+            "Env": false,
+            "File": false,
+            "Filepath": "",
+            "Name": "default",
+            "ServiceName": "",
+            "TTL": 0
+          },
+          "KillSignal": "",
+          "KillTimeout": 5000000000,
+          "Kind": "",
+          "Leader": false,
+          "Lifecycle": null,
+          "LogConfig": {
+            "Disabled": false,
+            "MaxFileSizeMB": 10,
+            "MaxFiles": 5
+          },
+          "Meta": null,
+          "Name": "polkajam-validator",
+          "Resources": {
+            "CPU": 100,
+            "Cores": 0,
+            "Devices": null,
+            "DiskMB": 0,
+            "IOPS": 0,
+            "MemoryMB": 3192,
+            "MemoryMaxMB": 0,
+            "NUMA": null,
+            "Networks": null,
+            "SecretsMB": 0
+          },
+          "RestartPolicy": {
+            "Attempts": 2,
+            "Delay": 15000000000,
+            "Interval": 1800000000000,
+            "Mode": "fail",
+            "RenderTemplates": false
+          },
+          "ScalingPolicies": null,
+          "Schedule": null,
+          "Secrets": null,
+          "Services": null,
+          "ShutdownDelay": 0,
+          "Templates": [
+            {
+              "ChangeMode": "restart",
+              "ChangeScript": null,
+              "ChangeSignal": "",
+              "DestPath": "local/start.sh",
+              "EmbeddedTmpl": "#!/usr/bin/env bash\nset -x\nmkdir -p \"local/${CHAIN_ID}/keys\"\n\nSEED_INDEX=$(printf \"%03d\" \"$VALIDATOR_INDEX\")\ncurl -fsSL -o \"local/${CHAIN_ID}/keys/val.seed\" \"${NOMAD_META_jam_url}/keys/val_${SEED_INDEX}.seed\"\ncurl -fsSL -o local/polkajam   \"${NOMAD_META_jam_url}/polkajam\"\ncurl -fsSL -o local/spec.json  \"${NOMAD_META_jam_url}/spec.json\"\nchmod +x ./local/polkajam\n\nPORT=$(echo \"${NET_ADDR}\" | cut -d: -f2)\n./local/polkajam --chain=local/spec.json -c local/ run \\\n  -d \"/data/${CHAIN_ID}/${VALIDATOR_INDEX}\" \\\n  --rpc \\\n  --rpc-port \"$(( PORT + 4000 ))\" \\\n  --port \"${PORT}\" \\\n  --peer-id \"${PEER_ID}\" \\\n  --external-ip 0.0.0.0\n",
+              "Envvars": false,
+              "ErrMissingKey": false,
+              "Gid": null,
+              "LeftDelim": "{{",
+              "Once": false,
+              "Perms": "0755",
+              "RightDelim": "}}",
+              "SourcePath": "",
+              "Splay": 5000000000,
+              "Uid": null,
+              "VaultGrace": 0,
+              "Wait": null
+            }
+          ],
+          "User": "",
+          "Vault": null,
+          "VolumeMounts": [
+            {
+              "Destination": "/data",
+              "PropagationMode": "private",
+              "ReadOnly": false,
+              "SELinuxLabel": "",
+              "Volume": "data"
+            }
+          ]
+        }
+      ],
+      "Update": {
+        "AutoPromote": false,
+        "AutoRevert": false,
+        "Canary": 0,
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000,
+        "ProgressDeadline": 600000000000,
+        "Stagger": 30000000000
+      },
+      "Volumes": {
+        "data": {
+          "AccessMode": "",
+          "AttachmentMode": "",
+          "MountOptions": null,
+          "Name": "data",
+          "PerAlloc": false,
+          "ReadOnly": false,
+          "Source": "disk1-local",
+          "Sticky": false,
+          "Type": "host"
+        }
+      }
+    },
+    {
+      "Affinities": null,
+      "Constraints": [
+        {
+          "LTarget": "${meta.client_ip}",
+          "Operand": "=",
+          "RTarget": "192.168.20.5"
+        }
+      ],
+      "Consul": null,
+      "Count": 1,
+      "Disconnect": null,
+      "EphemeralDisk": {
+        "Migrate": false,
+        "SizeMB": 300,
+        "Sticky": false
+      },
+      "MaxClientDisconnect": null,
+      "Meta": null,
+      "Migrate": {
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000
+      },
+      "Name": "validator-4",
+      "Networks": null,
+      "PreventRescheduleOnLost": false,
+      "ReschedulePolicy": {
+        "Attempts": 0,
+        "Delay": 30000000000,
+        "DelayFunction": "exponential",
+        "Interval": 0,
+        "MaxDelay": 3600000000000,
+        "Unlimited": true
+      },
+      "RestartPolicy": {
+        "Attempts": 2,
+        "Delay": 15000000000,
+        "Interval": 1800000000000,
+        "Mode": "fail",
+        "RenderTemplates": false
+      },
+      "Scaling": null,
+      "Services": null,
+      "ShutdownDelay": null,
+      "Spreads": null,
+      "StopAfterClientDisconnect": null,
+      "Tasks": [
+        {
+          "Actions": null,
+          "Affinities": null,
+          "Artifacts": null,
+          "CSIPluginConfig": null,
+          "Config": {
+            "args": [
+              "local/start.sh"
+            ],
+            "command": "bash"
+          },
+          "Constraints": null,
+          "Consul": null,
+          "DispatchPayload": null,
+          "Driver": "exec",
+          "Env": {
+            "NOMAD_NAMESPACE": "default",
+            "CHAIN_ID": "testnet7",
+            "VALIDATOR_INDEX": "4",
+            "PEER_ID": "e637qveeq6a7tkz2gc5a4re4ixs6ejcnc4gffgxsyg3rsc3x4dnzb",
+            "NET_ADDR": "192.168.20.5:40004",
+            "JAM_URL": "http://192.168.20.0/chains"
+          },
+          "Identities": null,
+          "Identity": {
+            "Audience": [
+              "nomadproject.io"
+            ],
+            "ChangeMode": "",
+            "ChangeSignal": "",
+            "Env": false,
+            "File": false,
+            "Filepath": "",
+            "Name": "default",
+            "ServiceName": "",
+            "TTL": 0
+          },
+          "KillSignal": "",
+          "KillTimeout": 5000000000,
+          "Kind": "",
+          "Leader": false,
+          "Lifecycle": null,
+          "LogConfig": {
+            "Disabled": false,
+            "MaxFileSizeMB": 10,
+            "MaxFiles": 5
+          },
+          "Meta": null,
+          "Name": "polkajam-validator",
+          "Resources": {
+            "CPU": 100,
+            "Cores": 0,
+            "Devices": null,
+            "DiskMB": 0,
+            "IOPS": 0,
+            "MemoryMB": 3192,
+            "MemoryMaxMB": 0,
+            "NUMA": null,
+            "Networks": null,
+            "SecretsMB": 0
+          },
+          "RestartPolicy": {
+            "Attempts": 2,
+            "Delay": 15000000000,
+            "Interval": 1800000000000,
+            "Mode": "fail",
+            "RenderTemplates": false
+          },
+          "ScalingPolicies": null,
+          "Schedule": null,
+          "Secrets": null,
+          "Services": null,
+          "ShutdownDelay": 0,
+          "Templates": [
+            {
+              "ChangeMode": "restart",
+              "ChangeScript": null,
+              "ChangeSignal": "",
+              "DestPath": "local/start.sh",
+              "EmbeddedTmpl": "#!/usr/bin/env bash\nset -x\nmkdir -p \"local/${CHAIN_ID}/keys\"\n\nSEED_INDEX=$(printf \"%03d\" \"$VALIDATOR_INDEX\")\ncurl -fsSL -o \"local/${CHAIN_ID}/keys/val.seed\" \"${NOMAD_META_jam_url}/keys/val_${SEED_INDEX}.seed\"\ncurl -fsSL -o local/polkajam   \"${NOMAD_META_jam_url}/polkajam\"\ncurl -fsSL -o local/spec.json  \"${NOMAD_META_jam_url}/spec.json\"\nchmod +x ./local/polkajam\n\nPORT=$(echo \"${NET_ADDR}\" | cut -d: -f2)\n./local/polkajam --chain=local/spec.json -c local/ run \\\n  -d \"/data/${CHAIN_ID}/${VALIDATOR_INDEX}\" \\\n  --rpc \\\n  --rpc-port \"$(( PORT + 4000 ))\" \\\n  --port \"${PORT}\" \\\n  --peer-id \"${PEER_ID}\" \\\n  --external-ip 0.0.0.0\n",
+              "Envvars": false,
+              "ErrMissingKey": false,
+              "Gid": null,
+              "LeftDelim": "{{",
+              "Once": false,
+              "Perms": "0755",
+              "RightDelim": "}}",
+              "SourcePath": "",
+              "Splay": 5000000000,
+              "Uid": null,
+              "VaultGrace": 0,
+              "Wait": null
+            }
+          ],
+          "User": "",
+          "Vault": null,
+          "VolumeMounts": [
+            {
+              "Destination": "/data",
+              "PropagationMode": "private",
+              "ReadOnly": false,
+              "SELinuxLabel": "",
+              "Volume": "data"
+            }
+          ]
+        }
+      ],
+      "Update": {
+        "AutoPromote": false,
+        "AutoRevert": false,
+        "Canary": 0,
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000,
+        "ProgressDeadline": 600000000000,
+        "Stagger": 30000000000
+      },
+      "Volumes": {
+        "data": {
+          "AccessMode": "",
+          "AttachmentMode": "",
+          "MountOptions": null,
+          "Name": "data",
+          "PerAlloc": false,
+          "ReadOnly": false,
+          "Source": "disk1-local",
+          "Sticky": false,
+          "Type": "host"
+        }
+      }
+    },
+    {
+      "Affinities": null,
+      "Constraints": [
+        {
+          "LTarget": "${meta.client_ip}",
+          "Operand": "=",
+          "RTarget": "192.168.20.6"
+        }
+      ],
+      "Consul": null,
+      "Count": 1,
+      "Disconnect": null,
+      "EphemeralDisk": {
+        "Migrate": false,
+        "SizeMB": 300,
+        "Sticky": false
+      },
+      "MaxClientDisconnect": null,
+      "Meta": null,
+      "Migrate": {
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000
+      },
+      "Name": "validator-5",
+      "Networks": null,
+      "PreventRescheduleOnLost": false,
+      "ReschedulePolicy": {
+        "Attempts": 0,
+        "Delay": 30000000000,
+        "DelayFunction": "exponential",
+        "Interval": 0,
+        "MaxDelay": 3600000000000,
+        "Unlimited": true
+      },
+      "RestartPolicy": {
+        "Attempts": 2,
+        "Delay": 15000000000,
+        "Interval": 1800000000000,
+        "Mode": "fail",
+        "RenderTemplates": false
+      },
+      "Scaling": null,
+      "Services": null,
+      "ShutdownDelay": null,
+      "Spreads": null,
+      "StopAfterClientDisconnect": null,
+      "Tasks": [
+        {
+          "Actions": null,
+          "Affinities": null,
+          "Artifacts": null,
+          "CSIPluginConfig": null,
+          "Config": {
+            "command": "bash",
+            "args": [
+              "local/start.sh"
+            ]
+          },
+          "Constraints": null,
+          "Consul": null,
+          "DispatchPayload": null,
+          "Driver": "exec",
+          "Env": {
+            "CHAIN_ID": "testnet7",
+            "VALIDATOR_INDEX": "5",
+            "PEER_ID": "ekkuy6ofa5mj5eljpryaitltksm2vcgtbqihnqqsvgm3kmywzupaa",
+            "NET_ADDR": "192.168.20.6:40005",
+            "JAM_URL": "http://192.168.20.0/chains",
+            "NOMAD_NAMESPACE": "default"
+          },
+          "Identities": null,
+          "Identity": {
+            "Audience": [
+              "nomadproject.io"
+            ],
+            "ChangeMode": "",
+            "ChangeSignal": "",
+            "Env": false,
+            "File": false,
+            "Filepath": "",
+            "Name": "default",
+            "ServiceName": "",
+            "TTL": 0
+          },
+          "KillSignal": "",
+          "KillTimeout": 5000000000,
+          "Kind": "",
+          "Leader": false,
+          "Lifecycle": null,
+          "LogConfig": {
+            "Disabled": false,
+            "MaxFileSizeMB": 10,
+            "MaxFiles": 5
+          },
+          "Meta": null,
+          "Name": "polkajam-validator",
+          "Resources": {
+            "CPU": 100,
+            "Cores": 0,
+            "Devices": null,
+            "DiskMB": 0,
+            "IOPS": 0,
+            "MemoryMB": 3192,
+            "MemoryMaxMB": 0,
+            "NUMA": null,
+            "Networks": null,
+            "SecretsMB": 0
+          },
+          "RestartPolicy": {
+            "Attempts": 2,
+            "Delay": 15000000000,
+            "Interval": 1800000000000,
+            "Mode": "fail",
+            "RenderTemplates": false
+          },
+          "ScalingPolicies": null,
+          "Schedule": null,
+          "Secrets": null,
+          "Services": null,
+          "ShutdownDelay": 0,
+          "Templates": [
+            {
+              "ChangeMode": "restart",
+              "ChangeScript": null,
+              "ChangeSignal": "",
+              "DestPath": "local/start.sh",
+              "EmbeddedTmpl": "#!/usr/bin/env bash\nset -x\nmkdir -p \"local/${CHAIN_ID}/keys\"\n\nSEED_INDEX=$(printf \"%03d\" \"$VALIDATOR_INDEX\")\ncurl -fsSL -o \"local/${CHAIN_ID}/keys/val.seed\" \"${NOMAD_META_jam_url}/keys/val_${SEED_INDEX}.seed\"\ncurl -fsSL -o local/polkajam   \"${NOMAD_META_jam_url}/polkajam\"\ncurl -fsSL -o local/spec.json  \"${NOMAD_META_jam_url}/spec.json\"\nchmod +x ./local/polkajam\n\nPORT=$(echo \"${NET_ADDR}\" | cut -d: -f2)\n./local/polkajam --chain=local/spec.json -c local/ run \\\n  -d \"/data/${CHAIN_ID}/${VALIDATOR_INDEX}\" \\\n  --rpc \\\n  --rpc-port \"$(( PORT + 4000 ))\" \\\n  --port \"${PORT}\" \\\n  --peer-id \"${PEER_ID}\" \\\n  --external-ip 0.0.0.0\n",
+              "Envvars": false,
+              "ErrMissingKey": false,
+              "Gid": null,
+              "LeftDelim": "{{",
+              "Once": false,
+              "Perms": "0755",
+              "RightDelim": "}}",
+              "SourcePath": "",
+              "Splay": 5000000000,
+              "Uid": null,
+              "VaultGrace": 0,
+              "Wait": null
+            }
+          ],
+          "User": "",
+          "Vault": null,
+          "VolumeMounts": [
+            {
+              "Destination": "/data",
+              "PropagationMode": "private",
+              "ReadOnly": false,
+              "SELinuxLabel": "",
+              "Volume": "data"
+            }
+          ]
+        }
+      ],
+      "Update": {
+        "AutoPromote": false,
+        "AutoRevert": false,
+        "Canary": 0,
+        "HealthCheck": "checks",
+        "HealthyDeadline": 300000000000,
+        "MaxParallel": 1,
+        "MinHealthyTime": 10000000000,
+        "ProgressDeadline": 600000000000,
+        "Stagger": 30000000000
+      },
+      "Volumes": {
+        "data": {
+          "AccessMode": "",
+          "AttachmentMode": "",
+          "MountOptions": null,
+          "Name": "data",
+          "PerAlloc": false,
+          "ReadOnly": false,
+          "Source": "disk1-local",
+          "Sticky": false,
+          "Type": "host"
+        }
+      }
+    }
+  ],
+  "Type": "service",
+  "UI": null,
+  "Update": {
+    "AutoPromote": false,
+    "AutoRevert": false,
+    "Canary": 0,
+    "HealthCheck": "",
+    "HealthyDeadline": 0,
+    "MaxParallel": 1,
+    "MinHealthyTime": 0,
+    "ProgressDeadline": 0,
+    "Stagger": 30000000000
+  },
+  "VaultNamespace": "",
+  "Version": 3,
+  "VersionTag": null,
+  "meta": {
+    "index": "874138"
+  }
+}

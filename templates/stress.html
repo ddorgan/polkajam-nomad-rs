@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stress net – deploy {{ target }} validators</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #121826;
+      --panel-2: #1a2233;
+      --border: #243049;
+      --text: #e6edf7;
+      --muted: #8a97b1;
+      --accent: #6aa5ff;
+      --accent-2: #4f8ef7;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: radial-gradient(1200px 600px at 20% -10%, #182238 0%, var(--bg) 60%);
+      color: var(--text);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      min-height: 100%;
+    }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 28px 24px 80px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      margin-bottom: 22px;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+    h1 .pill {
+      display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--muted); font-size: 12px; font-weight: 500;
+    }
+    .nav { display: flex; gap: 10px; align-items: center; }
+    .nav a { color: var(--muted); font-size: 13px; padding: 6px 10px; border-radius: 8px; }
+    .nav a.active { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(52,211,153,.15); }
+    .dot.warn { background: var(--warn); }
+    .dot.err { background: var(--err); }
+
+    .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 20px; }
+    @media (max-width: 1080px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 30px rgba(0,0,0,0.25);
+    }
+    .card h2 {
+      font-size: 12px; margin: 0 0 12px; color: var(--muted);
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .card h2 .sub {
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      text-transform: none; letter-spacing: 0; opacity: .8;
+    }
+
+    .plan {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 720px) { .plan { grid-template-columns: repeat(2, 1fr); } }
+    .stat {
+      background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .stat .k { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; }
+    .stat .v { font: 600 18px var(--mono); margin-top: 4px; }
+    .stat .v.big { font-size: 22px; }
+
+    .hero {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: linear-gradient(180deg, rgba(106,165,255,0.08), rgba(79,142,247,0.04));
+      border: 1px solid rgba(106,165,255,0.35);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
+    }
+    .hero .left { display: flex; align-items: center; gap: 14px; }
+    .hero .target {
+      font: 700 28px var(--mono); color: var(--accent); line-height: 1;
+    }
+    .hero .target small { display: block; font: 500 11px -apple-system, sans-serif; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+    .hero .right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .hero input[type=number] {
+      width: 88px; background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 9px; font: 14px var(--mono); outline: none;
+    }
+    .hero input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(79,142,247,0.18); }
+    .presets { display: inline-flex; gap: 6px; padding: 3px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
+    .presets button {
+      padding: 6px 12px; font: 600 13px var(--mono); border: 1px solid transparent;
+      background: transparent; color: var(--muted); border-radius: 7px;
+    }
+    .presets button:hover { color: var(--text); border-color: var(--border); }
+    .presets button.active { background: var(--accent); color: #0b1020; border-color: transparent; }
+    .presets button.active:hover { border-color: transparent; }
+
+    .ro-defaults {
+      margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px 10px;
+      padding: 8px 10px; border: 1px dashed var(--border); border-radius: 8px;
+      background: rgba(106,165,255,0.03);
+    }
+    .ro-defaults .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 4px; align-self: center; }
+    .ro-defaults .kv { font: 11px var(--mono); color: var(--muted); }
+    .ro-defaults .kv b { color: var(--text); font-weight: 600; }
+
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+    @media (max-width: 720px) { .fields { grid-template-columns: 1fr; } }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field.wide { grid-column: 1 / -1; }
+    .field label { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+    .field label .hint { font-weight: 400; font-size: 10px; opacity: 0.7; }
+    .field label .req { color: var(--warn); font-weight: 600; }
+    .field input[type=text],
+    .field input[type=number] {
+      width: 100%; background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 9px; font: 12.5px var(--mono); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(79,142,247,0.18); }
+    .field input.dirty { border-color: var(--accent); }
+
+    .switch { display: inline-flex; align-items: center; gap: 10px; position: relative; }
+    .switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .switch .track {
+      width: 38px; height: 22px; background: var(--panel-2); border: 1px solid var(--border);
+      border-radius: 999px; position: relative; transition: background .15s;
+    }
+    .switch .thumb {
+      position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--muted); transition: transform .15s, background .15s;
+    }
+    .switch input:checked + .track { background: rgba(79,142,247,0.25); border-color: var(--accent-2); }
+    .switch input:checked + .track .thumb { transform: translateX(16px); background: var(--accent); }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+    button {
+      appearance: none; border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+      padding: 8px 13px; border-radius: 8px; font: 500 13px/1 inherit; cursor: pointer;
+      transition: transform .05s, border-color .15s, background .15s;
+    }
+    button:hover { border-color: var(--accent-2); }
+    button:active { transform: translateY(1px); }
+    button.primary { background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%); border-color: transparent; color: #0b1020; font-weight: 600; }
+    button.primary.big { padding: 12px 20px; font-size: 14px; }
+    button.ghost { background: transparent; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.small { padding: 5px 9px; font-size: 12px; border-radius: 6px; }
+
+    .meta-row { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+    .kbd { font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; }
+
+    .out {
+      background: #06090f; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; font: 12px/1.55 var(--mono); color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-word; max-height: 580px; overflow: auto;
+    }
+    .out .cmd { color: var(--accent); }
+    .out .ok { color: var(--ok); }
+    .out .err { color: var(--err); }
+    .out .muted { color: var(--muted); }
+    .out .step { display: block; padding: 4px 0; border-top: 1px dashed var(--border); margin-top: 6px; }
+    .out .step:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+    .out .step-head { font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+
+    .progress {
+      height: 8px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+      overflow: hidden; margin-top: 10px;
+    }
+    .progress > span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .25s; }
+
+    .footer { margin-top: 14px; color: var(--muted); font-size: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    details > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
+    details[open] > summary { color: var(--text); }
+    .badge {
+      display: inline-block; font: 11px var(--mono); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px;
+    }
+    .badge.req { color: var(--warn); border-color: rgba(251,191,36,0.4); }
+    .badge.opt { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Stress net <span class="pill">{{ validators_file }} + {{ builders_file }}</span></h1>
+        <div class="meta-row" style="margin-top:6px">
+          <span>folder: <span class="kbd">stress-net/</span></span>
+          <span>•</span>
+          <span>nomad: <span class="kbd" id="nomad-addr">loading…</span></span>
+          <span>•</span>
+          <span>target: <span class="kbd">{{ target }} validators</span></span>
+        </div>
+      </div>
+      <div class="nav">
+        <a href="/">test.hcl</a>
+        <a href="/val7">val7.hcl</a>
+        <a class="active" href="/stress">stress-net</a>
+        <div class="status" style="margin-left:8px">
+          <span class="dot" id="status-dot"></span>
+          <span id="status-text">checking…</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="hero">
+      <div class="left">
+        <div class="target">
+          <small>target validators</small>
+          <input type="number" id="target" min="1" step="1" value="{{ target }}" style="width:140px;font:700 28px var(--mono);color:var(--accent);background:transparent;border:0;padding:0;" />
+        </div>
+        <div class="presets" role="group" aria-label="validator presets">
+          <button type="button" data-preset="6">6</button>
+          <button type="button" data-preset="1023">1023</button>
+        </div>
+        <div class="plan" style="margin:0;flex:1;min-width:280px">
+          <div class="stat"><div class="k">per-dispatch count</div><div class="v" id="plan-count">—</div></div>
+          <div class="stat"><div class="k">full dispatches</div><div class="v" id="plan-full">—</div></div>
+          <div class="stat"><div class="k">remainder dispatch</div><div class="v" id="plan-rem">—</div></div>
+          <div class="stat"><div class="k">total validators</div><div class="v big" id="plan-total">—</div></div>
+        </div>
+      </div>
+      <div class="right">
+        <label class="switch" title="Run end-to-end without actually invoking nomad">
+          <input type="checkbox" id="dry-run" />
+          <span class="track"><span class="thumb"></span></span>
+          <span style="font-size:12px;color:var(--muted)">dry run</span>
+        </label>
+        <label class="switch" title="Return immediately from each dispatch">
+          <input type="checkbox" id="detach" checked />
+          <span class="track"><span class="thumb"></span></span>
+          <span style="font-size:12px;color:var(--muted)">-detach</span>
+        </label>
+        <button type="button" class="primary big" id="btn-run-target">Run target</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section>
+        <div class="card" style="margin-bottom:16px">
+          <h2>
+            <span>Validators · <span class="kbd" id="v-jobname">stress-test-1</span></span>
+            <span class="sub"><span class="kbd" id="v-file">{{ validators_file }}</span> · <span id="v-required-list"></span><span id="v-optional-list"></span></span>
+          </h2>
+          <div class="fields" id="v-fields"></div>
+          <div class="ro-defaults" id="v-ro-defaults" hidden></div>
+          <div class="actions">
+            <button type="button" id="v-register">Register</button>
+            <button type="button" id="v-dispatch">Dispatch (one group)</button>
+            <button type="button" class="ghost" id="v-reset">Reset</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>
+            <span>Builders · <span class="kbd" id="b-jobname">stress-test-builder-0</span></span>
+            <span class="sub"><span class="kbd" id="b-file">{{ builders_file }}</span> · <span id="b-required-list"></span><span id="b-optional-list"></span></span>
+          </h2>
+          <div class="fields" id="b-fields"></div>
+          <div class="ro-defaults" id="b-ro-defaults" hidden></div>
+          <div class="actions">
+            <button type="button" id="b-register">Register</button>
+            <button type="button" id="b-dispatch">Dispatch (one group)</button>
+            <button type="button" class="ghost" id="b-reset">Reset</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="card" style="margin-bottom:16px">
+          <h2>
+            <span>Output</span>
+            <span class="sub">live <span class="kbd">nomad</span> CLI results</span>
+          </h2>
+          <div class="progress"><span id="progress-bar"></span></div>
+          <div class="out" id="out" style="margin-top:10px"><span class="muted">Set the target above and click <b>Run target</b>. Output streams in step by step.</span></div>
+          <div class="footer">
+            For T = N·count + r the orchestrator registers a <span class="kbd">-remainder</span> variant with <span class="kbd">count = r</span> and dispatches the main job N times plus the remainder once.
+          </div>
+        </div>
+
+        <details class="card">
+          <summary>Detected job specs</summary>
+          <pre class="out" style="white-space:pre;margin-top:10px" id="raw-options">(loading…)</pre>
+        </details>
+      </section>
+    </div>
+  </div>
+
+<script>
+const $  = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+let STATE = { validators: null, builders: null, target: {{ target|tojson }} };
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+}
+
+function fieldKind(key, value) {
+  if (typeof value === "boolean") return "bool";
+  if (typeof value === "number") return "number";
+  if (key === "nomad_group" || key.endsWith("_count") || key.endsWith("_port")) return "number";
+  return "text";
+}
+
+function renderFields(prefix, kind, parsed) {
+  const root = $(`#${prefix}-fields`);
+  root.innerHTML = "";
+  const required = parsed.required || [];
+  const optional = parsed.optional || [];
+  const defaults = parsed.defaults || {};
+
+  // Only render fields for keys that nomad will accept at dispatch time
+  // (required ∪ optional). Other meta defaults are baked in at register time
+  // and would cause "unpermitted metadata keys" if sent via -meta.
+  const ordered = [...required];
+  for (const k of optional) if (!ordered.includes(k)) ordered.push(k);
+
+  for (const key of ordered) {
+    const isReq = required.includes(key);
+    const defVal = defaults[key] ?? "";
+    const fkind = fieldKind(key, defVal);
+
+    const wrap = document.createElement("div");
+    wrap.className = "field" + ((key === "jam_url" || key === "bin_url") ? " wide" : "");
+    const label = document.createElement("label");
+    label.innerHTML = `<span>${escapeHtml(key)}${isReq ? ' <span class="req">*</span>' : ''}</span>` +
+      `<span class="hint">${isReq ? "meta_required" : "meta_optional"}</span>`;
+    wrap.appendChild(label);
+
+    if (fkind === "bool") {
+      const sw = document.createElement("label");
+      sw.className = "switch";
+      sw.innerHTML = `<input type="checkbox" data-key="${escapeHtml(key)}" data-kind="bool" ${defVal ? "checked" : ""}/>
+        <span class="track"><span class="thumb"></span></span>
+        <span style="font-size:12px;color:var(--muted)" data-bool-label>${defVal}</span>`;
+      const cb = sw.querySelector("input");
+      const lbl = sw.querySelector("[data-bool-label]");
+      cb.addEventListener("change", () => { lbl.textContent = cb.checked; });
+      wrap.appendChild(sw);
+    } else {
+      const input = document.createElement("input");
+      input.type = fkind === "number" ? "number" : "text";
+      input.dataset.key = key;
+      input.dataset.kind = fkind;
+      input.dataset.default = defVal ?? "";
+      input.value = defVal ?? "";
+      if (isReq && (defVal === "" || defVal === undefined || defVal === null)) {
+        input.placeholder = "required";
+      }
+      input.addEventListener("input", () => {
+        input.classList.toggle("dirty", String(input.value) !== String(input.dataset.default));
+      });
+      wrap.appendChild(input);
+    }
+    root.appendChild(wrap);
+  }
+
+  renderReadonlyDefaults(prefix, parsed);
+}
+
+function renderReadonlyDefaults(prefix, parsed) {
+  const required = new Set(parsed.required || []);
+  const optional = new Set(parsed.optional || []);
+  const defaults = parsed.defaults || {};
+  const root = $(`#${prefix}-ro-defaults`);
+  root.innerHTML = "";
+  const baked = Object.keys(defaults).filter(k => !required.has(k) && !optional.has(k));
+  if (!baked.length) { root.hidden = true; return; }
+  root.hidden = false;
+  const lbl = document.createElement("span");
+  lbl.className = "lbl";
+  lbl.textContent = "baked at register time";
+  root.appendChild(lbl);
+  for (const k of baked) {
+    const v = defaults[k];
+    const el = document.createElement("span");
+    el.className = "kv";
+    el.innerHTML = `<b>${escapeHtml(k)}</b> = ${escapeHtml(String(v))}`;
+    root.appendChild(el);
+  }
+}
+
+function collectMeta(prefix) {
+  const meta = {};
+  for (const el of $$(`#${prefix}-fields [data-key]`)) {
+    const key = el.dataset.key;
+    const kind = el.dataset.kind;
+    if (kind === "bool") meta[key] = el.checked ? "true" : "false";
+    else if (el.value !== "") meta[key] = el.value;
+  }
+  return meta;
+}
+
+function renderHeaderLists(prefix, parsed) {
+  const reqs = parsed.required || [];
+  const opts = parsed.optional || [];
+  $(`#${prefix}-jobname`).textContent = parsed.job_name || "(unnamed)";
+  const r = $(`#${prefix}-required-list`);
+  const o = $(`#${prefix}-optional-list`);
+  r.innerHTML = reqs.map(k => `<span class="badge req">${escapeHtml(k)}*</span>`).join(" ");
+  o.innerHTML = " " + opts.map(k => `<span class="badge opt">${escapeHtml(k)}</span>`).join(" ");
+}
+
+function recomputePlan() {
+  const t = parseInt($("#target").value, 10) || 0;
+  STATE.target = t;
+  const per = (STATE.validators && STATE.validators.count) || 0;
+  if (per) {
+    const full = Math.floor(t / per);
+    const rem = t % per;
+    $("#plan-count").textContent = per;
+    $("#plan-full").textContent = `${full} × ${per}`;
+    $("#plan-rem").textContent = rem ? `1 × ${rem}` : "—";
+    $("#plan-total").textContent = (full * per + rem).toLocaleString();
+  } else {
+    $("#plan-count").textContent = "—";
+  }
+  for (const btn of $$(".presets button[data-preset]")) {
+    btn.classList.toggle("active", parseInt(btn.dataset.preset, 10) === t);
+  }
+}
+
+function fmtStep(s) {
+  const head = `<div class="step-head">› ${escapeHtml(s.step || "")}</div>`;
+  if (s.dry_run) {
+    return `<div class="step">${head}<span class="cmd">$ ${escapeHtml(s.cmd || "")}</span> <span class="muted">(dry run)</span></div>`;
+  }
+  const rc = s.returncode;
+  const cls = rc === 0 ? "ok" : "err";
+  const body = `<span class="cmd">$ ${escapeHtml(s.cmd || "")}</span>\n` +
+    `<span class="${cls}">exit ${rc}</span>` +
+    (s.stdout ? `\n${escapeHtml(s.stdout)}` : "") +
+    (s.stderr ? `\n<span class="err">${escapeHtml(s.stderr)}</span>` : "");
+  return `<div class="step">${head}${body}</div>`;
+}
+
+function fmtSingle(res) {
+  if (res.error) return `<span class="err">${escapeHtml(res.error)}</span>`;
+  const rc = res.returncode;
+  const cls = rc === 0 ? "ok" : "err";
+  return `<span class="cmd">$ ${escapeHtml(res.cmd || "")}</span>\n` +
+    `<span class="${cls}">exit ${rc}</span>\n\n` +
+    (res.stdout ? escapeHtml(res.stdout) + "\n" : "") +
+    (res.stderr ? `<span class="err">${escapeHtml(res.stderr)}</span>` : "");
+}
+
+function setOut(html) { $("#out").innerHTML = html; $("#out").scrollTop = 0; }
+
+async function postJson(url, body) {
+  const r = await fetch(url, { method: "POST", headers: {"content-type":"application/json"}, body: JSON.stringify(body || {}) });
+  return r.json();
+}
+
+async function withBusy(btn, fn) {
+  const prev = btn.textContent;
+  btn.disabled = true; btn.textContent = "Running…";
+  try { return await fn(); } finally { btn.disabled = false; btn.textContent = prev; }
+}
+
+async function loadOptions() {
+  const r = await fetch("/api/stress/options");
+  const data = await r.json();
+  STATE.validators = data.files && data.files.validators;
+  STATE.builders   = data.files && data.files.builders;
+
+  if (STATE.validators) {
+    renderHeaderLists("v", STATE.validators);
+    renderFields("v", "validators", STATE.validators);
+    $("#v-file").textContent = STATE.validators.file;
+  }
+  if (STATE.builders) {
+    renderHeaderLists("b", STATE.builders);
+    renderFields("b", "builders", STATE.builders);
+    $("#b-file").textContent = STATE.builders.file;
+  }
+
+  $("#nomad-addr").textContent = (data.nomad_addr) || "$NOMAD_ADDR";
+  $("#raw-options").textContent = JSON.stringify(data, null, 2);
+  recomputePlan();
+  refreshStatus();
+}
+
+async function refreshStatus() {
+  const dot = $("#status-dot"), txt = $("#status-text");
+  dot.className = "dot warn"; txt.textContent = "checking…";
+  try {
+    const r = await fetch("/api/stress/status");
+    const data = await r.json();
+    const v = data.jobs && data.jobs.validators;
+    if (v && v.ok) { dot.className = "dot ok"; txt.textContent = `${v.job} registered`; }
+    else { dot.className = "dot err"; txt.textContent = "validators not registered"; }
+  } catch { dot.className = "dot err"; txt.textContent = "nomad unreachable"; }
+}
+
+$("#target").addEventListener("input", recomputePlan);
+for (const btn of $$(".presets button[data-preset]")) {
+  btn.addEventListener("click", () => {
+    $("#target").value = btn.dataset.preset;
+    recomputePlan();
+  });
+}
+
+for (const [prefix, kind, jobLabel] of [["v","validators","validators"],["b","builders","builders"]]) {
+  $(`#${prefix}-register`).addEventListener("click", async (e) => {
+    await withBusy(e.target, async () => {
+      setOut(`<span class="muted">Registering ${kind}…</span>`);
+      const res = await postJson("/api/stress/register", { kind });
+      setOut(fmtSingle(res));
+      refreshStatus();
+    });
+  });
+  $(`#${prefix}-dispatch`).addEventListener("click", async (e) => {
+    const meta = collectMeta(prefix);
+    if (!meta.nomad_group) {
+      setOut(`<span class="err">nomad_group is required for ${kind}. Set it in the meta fields.</span>`);
+      return;
+    }
+    await withBusy(e.target, async () => {
+      setOut(`<span class="muted">Dispatching ${kind} with ${Object.keys(meta).length} meta value(s)…</span>`);
+      const res = await postJson("/api/stress/dispatch", { kind, meta, detach: $("#detach").checked });
+      setOut(fmtSingle(res));
+      refreshStatus();
+    });
+  });
+  $(`#${prefix}-reset`).addEventListener("click", () => {
+    const parsed = prefix === "v" ? STATE.validators : STATE.builders;
+    if (parsed) renderFields(prefix, kind, parsed);
+  });
+}
+
+$("#btn-run-target").addEventListener("click", async (e) => {
+  const t = parseInt($("#target").value, 10);
+  if (!t || t < 1) { setOut(`<span class="err">target must be a positive integer.</span>`); return; }
+  const meta = collectMeta("v");
+  delete meta.nomad_group; // orchestrator sets per dispatch
+  const dryRun = $("#dry-run").checked;
+  const detach = $("#detach").checked;
+
+  await withBusy(e.target, async () => {
+    setOut(`<span class="muted">Planning ${t} validators…</span>`);
+    $("#progress-bar").style.width = "5%";
+    const res = await postJson("/api/stress/run-target", { target: t, meta, detach, dry_run: dryRun });
+    $("#progress-bar").style.width = "100%";
+    if (res.error) { setOut(`<span class="err">${escapeHtml(res.error)}</span>`); return; }
+
+    const head = `<div class="step-head" style="color:var(--text)">` +
+      `Target ${res.target} = ${res.full_dispatches} × ${res.count_per_dispatch}` +
+      (res.remainder_count ? ` + 1 × ${res.remainder_count}` : "") +
+      ` = ${res.total_validators}${res.dry_run ? ' <span class="muted">(dry run)</span>' : ''}</div>`;
+    const steps = (res.steps || []).map(fmtStep).join("");
+    setOut(head + steps);
+    refreshStatus();
+    setTimeout(() => { $("#progress-bar").style.width = "0%"; }, 800);
+  });
+});
+
+loadOptions();
+</script>
+</body>
+</html>
