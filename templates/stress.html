@@ -291,7 +291,7 @@
           <div class="progress"><span id="progress-bar"></span></div>
           <div class="out" id="out" style="margin-top:10px"><span class="muted">Set the target above and click <b>Run target</b>. Output streams in step by step.</span></div>
           <div class="footer">
-            For T = N·count + r the orchestrator registers a <span class="kbd">-remainder</span> variant with <span class="kbd">count = r</span> and dispatches the main job N times plus the remainder once.
+            For T = N·count + r the orchestrator re-registers the same job with <span class="kbd">count = r</span> and dispatches the main job N times plus the remainder once.
           </div>
         </div>
 

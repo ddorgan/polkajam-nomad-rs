@@ -394,7 +394,7 @@ def api_stress_run_target():
 
     full = target // per
     remainder = target % per
-    remainder_job = f"{job_name}-remainder"
+    remainder_job = job_name
 
     plan: list[dict] = []
     if not dry_run:
@@ -425,11 +425,13 @@ def api_stress_run_target():
                 }
             )
 
-    def _meta_for(group: int) -> dict:
+    def _meta_for(group: int, dispatch_count: int | None = None) -> dict:
         m = dict(extra_meta)
         m["nomad_group"] = str(group)
         m["validator_base"] = str((group - 1) * per)
         m["group_size"] = str(per)
+        if dispatch_count is not None:
+            m["dispatch_count"] = str(dispatch_count)
         return m
 
     for i in range(1, full + 1):
@@ -440,7 +442,7 @@ def api_stress_run_target():
             plan.append({"step": f"dispatch-main-{i}", **run_cmd(cmd, cwd=APP_DIR)})
 
     if remainder > 0:
-        cmd = _dispatch_cmd(remainder_job, _meta_for(full + 1), detach)
+        cmd = _dispatch_cmd(remainder_job, _meta_for(full + 1, remainder), detach)
         if dry_run:
             plan.append({"step": "dispatch-remainder", "cmd": " ".join(cmd), "dry_run": True})
         else:
