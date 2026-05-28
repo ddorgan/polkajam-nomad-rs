@@ -21,6 +21,16 @@ impl StressPaths {
     }
 }
 
+/// Same resolution as `import/lib/paths.js` (`OUTPUT_DIR` env, default `output` under repo root).
+pub fn resolved_output_dir(app_dir: &Path) -> PathBuf {
+    let raw = std::env::var("OUTPUT_DIR").unwrap_or_else(|_| "output".into());
+    if Path::new(&raw).is_absolute() {
+        PathBuf::from(raw)
+    } else {
+        app_dir.join(raw)
+    }
+}
+
 pub fn find_app_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("APP_DIR") {
         return PathBuf::from(dir);

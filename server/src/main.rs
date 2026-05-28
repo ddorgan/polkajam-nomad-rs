@@ -1,11 +1,12 @@
 use axum::{
-    extract::State,
+    extract::{Path as AxumPath, State},
     http::StatusCode,
     response::{Html, IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
-use deploy_server::deploy::paths::{find_app_dir, StressPaths, TARGET_VALIDATORS};
+use deploy_server::deploy::paths::{find_app_dir, resolved_output_dir, StressPaths, TARGET_VALIDATORS};
+use deploy_server::deploy::chain::{gen_testnet, list_chains, GenTestnetParams};
 use deploy_server::deploy::stress::{
     cmd_result_json, stress_dispatch, stress_options, stress_register, stress_run_target,
     stress_status, RunTargetParams, StressKind,
@@ -75,6 +76,38 @@ struct RunTargetBody {
     dry_run: bool,
 }
 
+#[derive(Debug, Deserialize)]
+struct GenTestnetBody {
+    #[serde(default = "default_chain_id", alias = "chainId")]
+    chain_id: String,
+    #[serde(default, alias = "numValidators")]
+    num_validators: Option<u32>,
+    #[serde(default = "default_base_port", alias = "basePort")]
+    base_port: u32,
+    #[serde(default = "default_ip_start", alias = "ipStart")]
+    ip_start: String,
+    #[serde(default = "default_ip_end", alias = "ipEnd")]
+    ip_end: String,
+    #[serde(default)]
+    tiny: bool,
+}
+
+fn default_chain_id() -> String {
+    "testnet".into()
+}
+
+fn default_base_port() -> u32 {
+    40_000
+}
+
+fn default_ip_start() -> String {
+    "192.168.20.2".into()
+}
+
+fn default_ip_end() -> String {
+    "192.168.20.83".into()
+}
+
 fn default_true() -> bool {
     true
 }
@@ -131,6 +164,7 @@ async fn run_server(app_dir: PathBuf) {
         .route("/", get(index_page))
         .route("/val7", get(val7_page))
         .route("/stress", get(stress_page))
+        .route("/chain", get(chain_page))
         .route("/api/options", get(api_options))
         .route("/api/register", post(api_register))
         .route("/api/dispatch", post(api_dispatch))
@@ -144,6 +178,9 @@ async fn run_server(app_dir: PathBuf) {
         .route("/api/stress/dispatch", post(api_stress_dispatch))
         .route("/api/stress/run-target", post(api_stress_run_target))
         .route("/api/stress/status", get(api_stress_status))
+        .route("/api/chains", get(api_chains))
+        .route("/api/chains/:chain_id/chainspec", get(api_chainspec))
+        .route("/api/gen-testnet", post(api_gen_testnet))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -193,6 +230,13 @@ async fn stress_page(State(state): State<AppState>) -> Result<Html<String>, Resp
                 builders_file => file_name(&paths.builders),
             },
         )
+        .map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Html(html))
+}
+
+async fn chain_page(State(state): State<AppState>) -> Result<Html<String>, Response> {
+    let html = state
+        .render("chain.html", context! {})
         .map_err(|e| api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Html(html))
 }
@@ -445,6 +489,57 @@ async fn api_stress_status(State(state): State<AppState>) -> Response {
         return Json(json!({ "ok": false, "error": "nomad CLI not on PATH" })).into_response();
     }
     Json(stress_status(&state.stress_paths()).await).into_response()
+}
+
+async fn api_chains(State(state): State<AppState>) -> Response {
+    match list_chains(&state.app_dir) {
+        Ok(chains) => Json(json!(chains)).into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, e),
+    }
+}
+
+async fn api_chainspec(
+    State(state): State<AppState>,
+    AxumPath(chain_id): AxumPath<String>,
+) -> Response {
+    let chain_id = chain_id.trim();
+    if chain_id.is_empty() {
+        return api_error(StatusCode::BAD_REQUEST, "missing chainId");
+    }
+    let config_path = resolved_output_dir(&state.app_dir)
+        .join(chain_id)
+        .join(format!("{chain_id}_config.json"));
+    if !config_path.is_file() {
+        return api_error(
+            StatusCode::NOT_FOUND,
+            format!("Chainspec not found for chain {chain_id}"),
+        );
+    }
+    match std::fs::read_to_string(&config_path) {
+        Ok(body) => match serde_json::from_str::<Value>(&body) {
+            Ok(value) => Json(value).into_response(),
+            Err(e) => api_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Invalid chainspec JSON for chain {chain_id}: {e}"),
+            ),
+        },
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    }
+}
+
+async fn api_gen_testnet(State(state): State<AppState>, Json(body): Json<GenTestnetBody>) -> Response {
+    let params = GenTestnetParams {
+        chain_id: body.chain_id,
+        num_validators: body.num_validators,
+        base_port: body.base_port,
+        ip_start: body.ip_start,
+        ip_end: body.ip_end,
+        tiny: body.tiny,
+    };
+    match gen_testnet(&state.app_dir, params).await {
+        Ok(result) => Json(result).into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, e),
+    }
 }
 
 fn file_name(path: &std::path::Path) -> String {

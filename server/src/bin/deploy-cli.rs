@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use deploy_server::deploy::paths::{find_app_dir, StressPaths, TARGET_VALIDATORS};
+use deploy_server::deploy::chain::{gen_testnet, list_chains, GenTestnetParams};
+use deploy_server::deploy::paths::{find_app_dir, resolved_output_dir, StressPaths, TARGET_VALIDATORS};
 use deploy_server::deploy::stress::{
     cmd_result_json, stress_dispatch, stress_options, stress_purge_all, stress_register,
     stress_run_target, stress_status, RunTargetParams, StressKind,
@@ -30,6 +31,11 @@ enum Commands {
     Stress {
         #[command(subcommand)]
         command: StressCommands,
+    },
+    /// Chain generation (gen-testnet)
+    Chain {
+        #[command(subcommand)]
+        command: ChainCommands,
     },
 }
 
@@ -75,6 +81,28 @@ enum StressCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum ChainCommands {
+    /// Generate chainspec, validator keys, and spec under OUTPUT_DIR
+    Create {
+        #[arg(long, default_value = "testnet")]
+        chain_id: String,
+        #[arg(long)]
+        num_validators: Option<u32>,
+        #[arg(long, default_value_t = 40_000)]
+        base_port: u32,
+        #[arg(long, default_value = "192.168.20.2")]
+        ip_start: String,
+        #[arg(long, default_value = "192.168.20.83")]
+        ip_end: String,
+        /// Generate 6 validators instead of `--num-validators`
+        #[arg(long)]
+        tiny: bool,
+    },
+    /// List chains in OUTPUT_DIR
+    List,
+}
+
 #[derive(Clone, Copy, ValueEnum)]
 enum StressKindArg {
     Validators,
@@ -94,7 +122,7 @@ impl From<StressKindArg> for StressKind {
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     let app_dir = cli.app_dir.clone().unwrap_or_else(find_app_dir);
-    let paths = StressPaths::new(app_dir);
+    let paths = StressPaths::new(app_dir.clone());
 
     match cli.command {
         Commands::Stress { ref command } => match command {
@@ -205,6 +233,54 @@ async fn main() -> ExitCode {
                     Err(e) => exit_error(&cli, e),
                 }
             }
+        },
+        Commands::Chain { ref command } => match command {
+            ChainCommands::Create {
+                chain_id,
+                num_validators,
+                base_port,
+                ip_start,
+                ip_end,
+                tiny,
+            } => {
+                let params = GenTestnetParams {
+                    chain_id: chain_id.clone(),
+                    num_validators: *num_validators,
+                    base_port: *base_port,
+                    ip_start: ip_start.clone(),
+                    ip_end: ip_end.clone(),
+                    tiny: *tiny,
+                };
+                match gen_testnet(&app_dir, params).await {
+                    Ok(result) => {
+                        if cli.json {
+                            print_json(&serde_json::to_value(&result).unwrap());
+                        } else {
+                            print_chain_create(&result);
+                        }
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => exit_error(&cli, e),
+                }
+            }
+            ChainCommands::List => match list_chains(&app_dir) {
+                Ok(chains) => {
+                    if cli.json {
+                        print_json(&json!(chains));
+                    } else {
+                        println!("chains in {}", resolved_output_dir(&app_dir).display());
+                        if chains.is_empty() {
+                            println!("  (none)");
+                        } else {
+                            for chain in chains {
+                                println!("  {chain}");
+                            }
+                        }
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(e) => exit_error(&cli, e),
+            },
         },
     }
 }
@@ -407,4 +483,13 @@ fn print_stress_status(out: &Value) {
             }
         }
     }
+}
+
+fn print_chain_create(result: &deploy_server::deploy::GenTestnetResult) {
+    println!("chain created");
+    println!("  output dir:  {}", result.output_dir);
+    println!("  chain dir:   {}", result.chain_dir);
+    println!("  chainspec:   {}", result.saved_files.chainspec);
+    println!("  zip:         {}", result.saved_files.zip);
+    println!("  key seeds:   {}", result.keys.len());
 }
