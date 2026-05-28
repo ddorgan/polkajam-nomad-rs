@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use deploy_server::deploy::paths::{find_app_dir, StressPaths, TARGET_VALIDATORS};
 use deploy_server::deploy::stress::{
-    cmd_result_json, stress_dispatch, stress_options, stress_register, stress_run_target,
-    stress_status, RunTargetParams, StressKind,
+    cmd_result_json, stress_dispatch, stress_options, stress_purge_all, stress_register,
+    stress_run_target, stress_status, RunTargetParams, StressKind,
 };
 use deploy_server::nomad::{nomad_addr, which_nomad};
 use serde_json::{json, Map, Value};
@@ -67,6 +67,12 @@ enum StressCommands {
     },
     /// `nomad status` for validators, builders, and remainder jobs
     Status,
+    /// Stop and purge stress-net dispatch instances and parent jobs (`nomad job stop -purge`)
+    Purge {
+        /// Print planned commands without running nomad
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -179,6 +185,26 @@ async fn main() -> ExitCode {
                 }
                 ExitCode::SUCCESS
             }
+            StressCommands::Purge { dry_run } => {
+                if let Err(e) = require_nomad(&cli) {
+                    return e;
+                }
+                match stress_purge_all(&paths, *dry_run).await {
+                    Ok(result) => {
+                        if cli.json {
+                            print_json(&result.summary);
+                        } else {
+                            print_purge_all(&result.summary);
+                        }
+                        if result.failed && !*dry_run {
+                            ExitCode::from(1)
+                        } else {
+                            ExitCode::SUCCESS
+                        }
+                    }
+                    Err(e) => exit_error(&cli, e),
+                }
+            }
         },
     }
 }
@@ -290,6 +316,45 @@ fn print_run_target(summary: &Value) {
     println!("  total validators: {}", summary["total_validators"]);
     if summary["dry_run"].as_bool() == Some(true) {
         println!("  mode:             dry-run");
+    }
+    println!();
+    if let Some(steps) = summary.get("steps").and_then(|v| v.as_array()) {
+        for step in steps {
+            let name = step["step"].as_str().unwrap_or("step");
+            if step.get("dry_run").and_then(|v| v.as_bool()) == Some(true) {
+                println!("[{name}] $ {}", step["cmd"].as_str().unwrap_or(""));
+            } else {
+                let rc = step["returncode"].as_i64().unwrap_or(-1);
+                println!("[{name}] exit {rc}");
+                if let Some(cmd) = step.get("cmd").and_then(|v| v.as_str()) {
+                    println!("  $ {cmd}");
+                }
+                if let Some(stderr) = step.get("stderr").and_then(|v| v.as_str()) {
+                    if !stderr.is_empty() {
+                        eprintln!("  {stderr}");
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn print_purge_all(summary: &Value) {
+    println!("stress-net purge");
+    if let Some(jobs) = summary.get("dispatch_jobs").and_then(|v| v.as_array()) {
+        println!("  dispatch jobs: {}", jobs.len());
+        for job in jobs.iter().filter_map(|v| v.as_str()) {
+            println!("    {job}");
+        }
+    }
+    if let Some(jobs) = summary.get("parents").and_then(|v| v.as_array()) {
+        println!(
+            "  parent jobs: {}",
+            jobs.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(", ")
+        );
+    }
+    if summary["dry_run"].as_bool() == Some(true) {
+        println!("  mode: dry-run");
     }
     println!();
     if let Some(steps) = summary.get("steps").and_then(|v| v.as_array()) {

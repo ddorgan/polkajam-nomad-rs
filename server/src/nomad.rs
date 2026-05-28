@@ -101,6 +101,35 @@ pub fn cmd_result_with_step(step: &str, result: &CmdResult) -> Value {
     v
 }
 
+/// Job IDs from `nomad job status` (first column of the table).
+pub fn parse_job_status_ids(stdout: &str) -> Vec<String> {
+    let mut ids = Vec::new();
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with("ID") || line.starts_with("==>") {
+            continue;
+        }
+        if let Some(id) = line.split_whitespace().next() {
+            if !id.is_empty() {
+                ids.push(id.to_string());
+            }
+        }
+    }
+    ids
+}
+
+pub fn purge_job_args(job_id: &str) -> Vec<String> {
+    vec![
+        "nomad".into(),
+        "job".into(),
+        "stop".into(),
+        "-purge".into(),
+        "-yes".into(),
+        "-detach".into(),
+        job_id.to_string(),
+    ]
+}
+
 pub fn dry_run_step(step: &str, cmd: &str) -> Value {
     json!({
         "step": step,

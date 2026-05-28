@@ -1,8 +1,8 @@
 use crate::deploy::paths::{StressPaths, TARGET_VALIDATORS};
 use crate::hcl::{allowed_meta, filter_meta, parse_hcl_file, write_count_variant, ParsedHcl};
 use crate::nomad::{
-    cmd_result_to_value, cmd_result_with_step, dispatch_cmd, dry_run_step, nomad_addr, run_cmd,
-    which_nomad, CmdResult,
+    cmd_result_to_value, cmd_result_with_step, dispatch_cmd, dry_run_step, nomad_addr,
+    parse_job_status_ids, purge_job_args, run_cmd, which_nomad, CmdResult,
 };
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
@@ -174,8 +174,6 @@ pub async fn stress_run_target(
 
     let full = params.target / per;
     let remainder = params.target % per;
-    let remainder_job = format!("{job_name}-remainder");
-
     let mut steps: Vec<Value> = Vec::new();
     let mut failed = false;
 
@@ -204,7 +202,7 @@ pub async fn stress_run_target(
             &paths.validators,
             &paths.remainder,
             remainder,
-            &remainder_job,
+            job_name,
         )?;
         if params.dry_run {
             steps.push(dry_run_step(
@@ -227,7 +225,7 @@ pub async fn stress_run_target(
         }
     }
 
-    let meta_for = |group: u32| -> Map<String, Value> {
+    let meta_for = |group: u32, dispatch_count: Option<u32>| -> Map<String, Value> {
         let mut m = extra_meta.clone();
         m.insert("nomad_group".into(), json!(group.to_string()));
         m.insert(
@@ -235,11 +233,14 @@ pub async fn stress_run_target(
             json!(((group - 1) * per).to_string()),
         );
         m.insert("group_size".into(), json!(per.to_string()));
+        if let Some(c) = dispatch_count {
+            m.insert("dispatch_count".into(), json!(c.to_string()));
+        }
         m
     };
 
     for i in 1..=full {
-        let args = dispatch_cmd(job_name, &meta_for(i), params.detach);
+        let args = dispatch_cmd(job_name, &meta_for(i, None), params.detach);
         let step = format!("dispatch-main-{i}");
         if params.dry_run {
             steps.push(dry_run_step(&step, &args.join(" ")));
@@ -251,7 +252,7 @@ pub async fn stress_run_target(
     }
 
     if remainder > 0 {
-        let args = dispatch_cmd(&remainder_job, &meta_for(full + 1), params.detach);
+        let args = dispatch_cmd(job_name, &meta_for(full + 1, Some(remainder)), params.detach);
         if params.dry_run {
             steps.push(dry_run_step("dispatch-remainder", &args.join(" ")));
         } else {
@@ -268,12 +269,126 @@ pub async fn stress_run_target(
         "remainder_count": remainder,
         "total_validators": full * per + remainder,
         "main_job": job_name,
-        "remainder_job": if remainder > 0 { Value::String(remainder_job) } else { Value::Null },
+        "remainder_job": if remainder > 0 { Value::String(job_name.into()) } else { Value::Null },
         "dry_run": params.dry_run,
         "steps": steps,
     });
 
     Ok(RunTargetResult { summary, failed })
+}
+
+pub fn stress_job_names(paths: &StressPaths) -> Result<Vec<String>, String> {
+    let mut names = Vec::new();
+    for path in [
+        &paths.validators,
+        &paths.builders,
+        &paths.remainder,
+    ] {
+        if !path.exists() {
+            continue;
+        }
+        let parsed = parse_hcl_file(path).map_err(|e| e.to_string())?;
+        if let Some(name) = parsed.job_name {
+            if !names.iter().any(|n| n == &name) {
+                names.push(name);
+            }
+        }
+    }
+    Ok(names)
+}
+
+pub struct PurgeAllResult {
+    pub summary: Value,
+    pub failed: bool,
+}
+
+fn stress_dispatch_job_ids(all_ids: &[String], parents: &[String]) -> Vec<String> {
+    let mut dispatch = Vec::new();
+    for id in all_ids {
+        for parent in parents {
+            let legacy = format!("{parent}-remainder");
+            if id.contains("/dispatch-")
+                && (id.starts_with(parent) || id.starts_with(&legacy))
+            {
+                dispatch.push(id.clone());
+                break;
+            }
+        }
+    }
+    dispatch.sort();
+    dispatch.dedup();
+    dispatch
+}
+
+async fn nomad_list_job_ids(cwd: &Path) -> Result<Vec<String>, String> {
+    let result = run_cmd(
+        &["nomad".into(), "job".into(), "status".into()],
+        cwd,
+    )
+    .await;
+    if result.returncode != 0 {
+        return Err(format!(
+            "nomad job status failed (exit {}): {}",
+            result.returncode, result.stderr
+        ));
+    }
+    Ok(parse_job_status_ids(&result.stdout))
+}
+
+async fn purge_one_job(
+    job_id: &str,
+    step: &str,
+    cwd: &Path,
+    dry_run: bool,
+    steps: &mut Vec<Value>,
+) -> bool {
+    let args = purge_job_args(job_id);
+    if dry_run {
+        steps.push(dry_run_step(step, &args.join(" ")));
+        false
+    } else {
+        let result = run_cmd(&args, cwd).await;
+        steps.push(cmd_result_with_step(step, &result));
+        result.returncode != 0
+    }
+}
+
+pub async fn stress_purge_all(paths: &StressPaths, dry_run: bool) -> Result<PurgeAllResult, String> {
+    let parents = stress_job_names(paths)?;
+    if parents.is_empty() {
+        return Err("no stress job names found in specs".into());
+    }
+
+    let all_ids = nomad_list_job_ids(&paths.app_dir).await?;
+    let dispatch_jobs = stress_dispatch_job_ids(&all_ids, &parents);
+
+    let mut steps: Vec<Value> = Vec::new();
+    let mut failed = false;
+
+    for (i, job_id) in dispatch_jobs.iter().enumerate() {
+        failed |= purge_one_job(
+            job_id,
+            &format!("purge-dispatch-{i}"),
+            &paths.app_dir,
+            dry_run,
+            &mut steps,
+        )
+        .await;
+    }
+
+    for job in &parents {
+        failed |= purge_one_job(job, &format!("purge-{job}"), &paths.app_dir, dry_run, &mut steps)
+            .await;
+    }
+
+    let summary = json!({
+        "parents": parents,
+        "dispatch_jobs": dispatch_jobs,
+        "dry_run": dry_run,
+        "steps": steps,
+    });
+
+    Ok(PurgeAllResult { summary, failed })
 }
 
 pub async fn stress_status(paths: &StressPaths) -> Value {
