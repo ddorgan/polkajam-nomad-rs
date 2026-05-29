@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Create chain – gen-testnet</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --panel: #121826;
+      --panel-2: #1a2233;
+      --border: #243049;
+      --text: #e6edf7;
+      --muted: #8a97b1;
+      --accent: #6aa5ff;
+      --accent-2: #4f8ef7;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --err: #f87171;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      background: radial-gradient(1200px 600px at 20% -10%, #182238 0%, var(--bg) 60%);
+      color: var(--text);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+      min-height: 100%;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      margin-bottom: 24px; flex-wrap: wrap;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+    h1 .pill {
+      display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+      background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--muted); font-size: 12px; font-weight: 500;
+    }
+    .nav { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .nav a { color: var(--muted); font-size: 13px; padding: 6px 10px; border-radius: 8px; }
+    .nav a.active { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+    .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 30px rgba(0,0,0,0.25);
+    }
+    .card h2 {
+      font-size: 12px; margin: 0 0 14px; color: var(--muted);
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    input[type="text"], input[type="number"] {
+      width: 100%; background: var(--panel-2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 8px 10px; font: inherit;
+    }
+    input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(106,165,255,.15); }
+    .field { margin-bottom: 14px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .switch input { display: none; }
+    .switch .track {
+      width: 36px; height: 20px; border-radius: 999px; background: var(--panel-2);
+      border: 1px solid var(--border); position: relative;
+    }
+    .switch .thumb {
+      position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--muted); transition: transform .15s ease, background .15s ease;
+    }
+    .switch input:checked + .track { background: rgba(106,165,255,.25); border-color: var(--accent); }
+    .switch input:checked + .track .thumb { transform: translateX(16px); background: var(--accent); }
+    button {
+      background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: linear-gradient(180deg, var(--accent), var(--accent-2)); border-color: transparent; color: #061018; font-weight: 600; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .kbd { font-family: var(--mono); background: var(--panel-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 6px; font-size: 12px; }
+    .out {
+      background: #06090f; border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; font: 12px/1.55 var(--mono); color: #cbd5e1;
+      white-space: pre-wrap; word-break: break-word; max-height: 460px; overflow: auto;
+    }
+    .ok-box { border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.08); }
+    .err-box { border-color: rgba(248,113,113,.35); background: rgba(248,113,113,.08); color: #fecaca; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    ul.keys { margin: 8px 0 0; padding-left: 1.2rem; color: var(--muted); font-size: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Create chain <span class="pill">gen-testnet</span></h1>
+        <div class="hint" style="margin-top:6px">
+          Generates <span class="kbd">{chainId}_config.json</span>, validator seeds, and <span class="kbd">spec.json</span>
+          under <span class="kbd">OUTPUT_DIR</span> (same flow as the import app).
+        </div>
+      </div>
+      <div class="nav">
+        <a href="/">test.hcl</a>
+        <a href="/val7">val7.hcl</a>
+        <a href="/stress">stress-net</a>
+        <a class="active" href="/chain">create chain</a>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Parameters</h2>
+        <div class="field">
+          <label for="chain-id">Chain ID</label>
+          <input id="chain-id" type="text" value="testnet" />
+        </div>
+        <div class="field">
+          <label class="switch">
+            <input id="tiny" type="checkbox" checked />
+            <span class="track"><span class="thumb"></span></span>
+            <span>Tiny testnet (6 validators)</span>
+          </label>
+        </div>
+        <div class="field" id="num-wrap" hidden>
+          <label for="num-validators">Number of validators</label>
+          <input id="num-validators" type="number" min="1" max="10000" value="1023" />
+        </div>
+        <div class="field">
+          <label for="base-port">Base port</label>
+          <input id="base-port" type="number" min="1" max="65535" value="40000" />
+        </div>
+        <div class="field">
+          <label class="switch">
+            <input id="use-nomad-hosts" type="checkbox" />
+            <span class="track"><span class="thumb"></span></span>
+            <span>Use Nomad validator nodes (<span class="kbd">dynamic role=validators</span>)</span>
+          </label>
+          <div class="hint">Reads <span class="kbd">/v1/client/metadata</span> dynamic meta (<span class="kbd">role=validators</span>, optional <span class="kbd">client_ip</span>), not static node <span class="kbd">Meta</span>.</div>
+          <div class="row" id="nomad-preview-wrap" style="margin-top:8px" hidden>
+            <button type="button" id="btn-preview-hosts">Preview hosts</button>
+          </div>
+          <pre class="out" id="nomad-hosts-preview" style="margin-top:8px;max-height:180px" hidden></pre>
+        </div>
+        <div class="field" id="ip-range-wrap">
+          <label>IP range (inclusive, used for net_addr)</label>
+          <div class="row">
+            <input id="ip-start" type="text" value="192.168.20.2" style="flex:1;min-width:10rem" />
+            <span style="color:var(--muted)">to</span>
+            <input id="ip-end" type="text" value="192.168.20.83" style="flex:1;min-width:10rem" />
+          </div>
+          <div class="hint">Default: 192.168.20.2 – 192.168.20.83</div>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" id="btn-generate">Generate</button>
+          <button type="button" id="btn-refresh-chains">Refresh chains</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="card" style="margin-bottom:16px">
+          <h2>Existing chains</h2>
+          <div class="out" id="chains-list">(loading…)</div>
+        </div>
+        <div class="card" id="result-card" hidden>
+          <h2>Generated</h2>
+          <div id="result-summary"></div>
+          <div class="actions">
+            <button type="button" id="btn-dl-spec">Download chainspec</button>
+            <button type="button" id="btn-dl-keys">Download keys ZIP</button>
+          </div>
+          <details style="margin-top:12px">
+            <summary style="cursor:pointer;color:var(--muted)">Chainspec JSON</summary>
+            <pre class="out" id="result-spec" style="margin-top:8px"></pre>
+          </details>
+          <details style="margin-top:8px">
+            <summary style="cursor:pointer;color:var(--muted)">Key files</summary>
+            <ul class="keys" id="result-keys"></ul>
+          </details>
+        </div>
+        <div class="card err-box" id="error-box" hidden style="margin-top:16px"></div>
+      </section>
+    </div>
+  </div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+
+let lastResult = null;
+
+function toggleNumValidators() {
+  $("#num-wrap").hidden = $("#tiny").checked;
+}
+
+function toggleIpSource() {
+  const useNomad = $("#use-nomad-hosts").checked;
+  $("#nomad-preview-wrap").hidden = !useNomad;
+  $("#ip-range-wrap").hidden = useNomad;
+}
+
+$("#tiny").addEventListener("change", toggleNumValidators);
+$("#use-nomad-hosts").addEventListener("change", toggleIpSource);
+toggleNumValidators();
+toggleIpSource();
+
+async function postJson(url, body) {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText || "request failed");
+  return data;
+}
+
+async function refreshChains() {
+  const el = $("#chains-list");
+  el.textContent = "loading…";
+  try {
+    const r = await fetch("/api/chains");
+    const chains = await r.json();
+    if (!r.ok) throw new Error(chains.error || r.statusText);
+    el.textContent = chains.length ? chains.join("\n") : "(no chains in OUTPUT_DIR yet)";
+  } catch (e) {
+    el.textContent = "error: " + e.message;
+  }
+}
+
+async function previewNomadHosts() {
+  const el = $("#nomad-hosts-preview");
+  el.hidden = false;
+  el.textContent = "loading…";
+  try {
+    const r = await fetch("/api/nomad/hosts");
+    const hosts = await r.json();
+    if (!r.ok) throw new Error(hosts.error || r.statusText);
+    if (!hosts.length) {
+      el.textContent = "(no ready hosts with dynamic meta role=validators and a host IP)";
+      return;
+    }
+    el.textContent = hosts.map((h) => `${h.clientIp}\t${h.name}\t${h.status}\t${h.datacenter}`).join("\n");
+  } catch (e) {
+    el.textContent = "error: " + e.message;
+  }
+}
+
+function showError(msg) {
+  const box = $("#error-box");
+  box.hidden = false;
+  box.textContent = msg;
+}
+
+function clearError() {
+  $("#error-box").hidden = true;
+}
+
+function renderResult(data) {
+  lastResult = data;
+  clearError();
+  $("#result-card").hidden = false;
+  $("#result-summary").innerHTML =
+    `Saved to <span class="kbd">${data.chainDir}</span><br>` +
+    `${data.keys.length} key seed(s); chainspec at <span class="kbd">${data.savedFiles.chainspec}</span>` +
+    (Array.isArray(data.nomadHosts) && data.nomadHosts.length
+      ? `<br>Used ${data.nomadHosts.length} Nomad host IP(s).`
+      : "");
+  $("#result-spec").textContent = data.chainspec;
+  const ul = $("#result-keys");
+  ul.innerHTML = "";
+  for (const k of data.keys) {
+    const li = document.createElement("li");
+    li.textContent = k.fileName;
+    ul.appendChild(li);
+  }
+}
+
+$("#btn-generate").addEventListener("click", async () => {
+  const btn = $("#btn-generate");
+  btn.disabled = true;
+  btn.textContent = "Generating…";
+  clearError();
+  try {
+    const data = await postJson("/api/gen-testnet", {
+      chainId: $("#chain-id").value.trim() || "testnet",
+      numValidators: Number($("#num-validators").value),
+      basePort: Number($("#base-port").value),
+      ipStart: $("#ip-start").value.trim(),
+      ipEnd: $("#ip-end").value.trim(),
+      tiny: $("#tiny").checked,
+      useNomadHosts: $("#use-nomad-hosts").checked,
+      "meta.role": "validators",
+    });
+    renderResult(data);
+    await refreshChains();
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Generate";
+  }
+});
+
+function downloadBlob(name, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+$("#btn-dl-spec").addEventListener("click", () => {
+  if (!lastResult?.chainspec) return;
+  const id = $("#chain-id").value.trim() || "testnet";
+  downloadBlob(`${id}_config.json`, new Blob([lastResult.chainspec], { type: "application/json" }));
+});
+
+$("#btn-dl-keys").addEventListener("click", async () => {
+  if (!lastResult?.keys?.length) return;
+  const id = $("#chain-id").value.trim() || "testnet";
+  const zipMod = window.JSZip;
+  if (!zipMod) {
+    showError("JSZip not loaded — use saved files on the server instead.");
+    return;
+  }
+  const zip = new zipMod();
+  for (const k of lastResult.keys) {
+    const bytes = Uint8Array.from(atob(k.seedBase64), (c) => c.charCodeAt(0));
+    zip.file(k.fileName, bytes);
+  }
+  const blob = await zip.generateAsync({ type: "blob" });
+  downloadBlob(`${id}-keys.zip`, blob);
+});
+
+$("#btn-refresh-chains").addEventListener("click", refreshChains);
+$("#btn-preview-hosts").addEventListener("click", previewNomadHosts);
+refreshChains();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</body>
+</html>
