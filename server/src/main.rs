@@ -13,6 +13,7 @@ use deploy_server::deploy::stress::{
 };
 use deploy_server::hcl::{allowed_meta, filter_meta, parse_hcl_file, ParsedHcl};
 use deploy_server::nomad::{cmd_result_to_value, dispatch_cmd, nomad_addr, run_cmd, which_nomad};
+use deploy_server::nomad_nodes::{available_nomad_hosts, chain_nomad_meta_role, normalize_meta_role};
 use minijinja::{context, Environment};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
@@ -90,6 +91,14 @@ struct GenTestnetBody {
     ip_end: String,
     #[serde(default)]
     tiny: bool,
+    #[serde(default, alias = "useNomadHosts")]
+    use_nomad_hosts: bool,
+    #[serde(default = "default_nomad_meta_role", alias = "meta.role")]
+    nomad_meta_role: String,
+}
+
+fn default_nomad_meta_role() -> String {
+    chain_nomad_meta_role()
 }
 
 fn default_chain_id() -> String {
@@ -181,6 +190,7 @@ async fn run_server(app_dir: PathBuf) {
         .route("/api/chains", get(api_chains))
         .route("/api/chains/:chain_id/chainspec", get(api_chainspec))
         .route("/api/gen-testnet", post(api_gen_testnet))
+        .route("/api/nomad/hosts", get(api_nomad_hosts))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -527,6 +537,13 @@ async fn api_chainspec(
     }
 }
 
+async fn api_nomad_hosts() -> Response {
+    match available_nomad_hosts(&chain_nomad_meta_role()).await {
+        Ok(hosts) => Json(hosts).into_response(),
+        Err(e) => api_error(StatusCode::INTERNAL_SERVER_ERROR, e),
+    }
+}
+
 async fn api_gen_testnet(State(state): State<AppState>, Json(body): Json<GenTestnetBody>) -> Response {
     let params = GenTestnetParams {
         chain_id: body.chain_id,
@@ -535,6 +552,8 @@ async fn api_gen_testnet(State(state): State<AppState>, Json(body): Json<GenTest
         ip_start: body.ip_start,
         ip_end: body.ip_end,
         tiny: body.tiny,
+        use_nomad_hosts: body.use_nomad_hosts,
+        nomad_meta_role: normalize_meta_role(&body.nomad_meta_role),
     };
     match gen_testnet(&state.app_dir, params).await {
         Ok(result) => Json(result).into_response(),

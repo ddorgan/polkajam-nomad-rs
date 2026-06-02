@@ -9,6 +9,7 @@ use zip::ZipWriter;
 
 use super::paths::resolved_output_dir;
 use super::polkajam::{find_polkajam_bin, run_gen_keys, run_gen_spec};
+use crate::nomad_nodes::{available_nomad_hosts, chain_nomad_meta_role, NomadHost};
 
 struct TempDir(PathBuf);
 
@@ -43,6 +44,8 @@ pub struct GenTestnetParams {
     pub ip_start: String,
     pub ip_end: String,
     pub tiny: bool,
+    pub use_nomad_hosts: bool,
+    pub nomad_meta_role: String,
 }
 
 impl Default for GenTestnetParams {
@@ -54,6 +57,8 @@ impl Default for GenTestnetParams {
             ip_start: "192.168.20.2".into(),
             ip_end: "192.168.20.83".into(),
             tiny: false,
+            use_nomad_hosts: false,
+            nomad_meta_role: chain_nomad_meta_role(),
         }
     }
 }
@@ -80,6 +85,8 @@ pub struct GenTestnetResult {
     pub output_dir: String,
     pub chain_dir: String,
     pub saved_files: SavedFiles,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nomad_hosts: Option<Vec<NomadHost>>,
 }
 
 fn ipv4_to_int(ip: &str) -> Result<u32, String> {
@@ -171,15 +178,31 @@ pub async fn gen_testnet(app_dir: &Path, params: GenTestnetParams) -> Result<Gen
     }
 
     let n = validator_count(&params)?;
-    let start_ip = ipv4_to_int(&params.ip_start)?;
-    let end_ip = ipv4_to_int(&params.ip_end)?;
-    if end_ip < start_ip {
-        return Err(format!(
-            "IP range invalid: {} > {}",
-            params.ip_start, params.ip_end
-        ));
-    }
-    let available = end_ip - start_ip + 1;
+    let (host_ips, nomad_hosts) = if params.use_nomad_hosts {
+        let meta_role = params.nomad_meta_role.trim();
+        let hosts = available_nomad_hosts(meta_role).await?;
+        let ips: Vec<String> = hosts.iter().map(|h| h.client_ip.clone()).collect();
+        if ips.is_empty() {
+            return Err(format!(
+                "no Nomad hosts with dynamic meta role={meta_role} returned"
+            ));
+        }
+        (ips, Some(hosts))
+    } else {
+        let start_ip = ipv4_to_int(&params.ip_start)?;
+        let end_ip = ipv4_to_int(&params.ip_end)?;
+        if end_ip < start_ip {
+            return Err(format!(
+                "IP range invalid: {} > {}",
+                params.ip_start, params.ip_end
+            ));
+        }
+        let count = end_ip - start_ip + 1;
+        let ips = (0..count)
+            .map(|i| int_to_ipv4(start_ip + i))
+            .collect();
+        (ips, None)
+    };
 
     let polkajam_bin = find_polkajam_bin(app_dir)?;
 
@@ -190,7 +213,7 @@ pub async fn gen_testnet(app_dir: &Path, params: GenTestnetParams) -> Result<Gen
     for i in 0..n {
         let file_name = format!("val_{:03}", i);
         let keys = run_gen_keys(&polkajam_bin, tmp_path, &file_name, app_dir).await?;
-        let ip = int_to_ipv4(start_ip + (i as u32 % available));
+        let ip = &host_ips[i as usize % host_ips.len()];
         let net_addr = format!("{}:{}", ip, params.base_port + i);
         validators.push(json!({
             "peer_id": keys.peer_id,
@@ -277,6 +300,7 @@ pub async fn gen_testnet(app_dir: &Path, params: GenTestnetParams) -> Result<Gen
             chainspec: chainspec_out_path.to_string_lossy().into_owned(),
             zip: zip_out_path.to_string_lossy().into_owned(),
         },
+        nomad_hosts,
     })
 }
 

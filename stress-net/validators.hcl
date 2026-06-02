@@ -142,7 +142,7 @@ EOH
 
       env {
         RUST_BACKTRACE = "full"
-        RUST_LOG = "peer-misbehaved=debug,authoring=debug,availability=debug,jam_node=debug"
+        RUST_LOG = "info"
         POLKAVM_BACKEND = "compiler"
       }
 

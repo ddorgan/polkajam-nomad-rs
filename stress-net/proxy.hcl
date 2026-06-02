@@ -1,13 +1,12 @@
-job "stress-test-proxy-0" {
+job "demo-test-proxy-0" {
   datacenters = ["dc1"]
   type = "batch"
 
   parameterized {
-    meta_required = ["nomad_group"]
-    meta_optional = ["node_count", "node_clean", "node_update", "jam_url", "role"]
+    meta_optional = ["node_group", "node_count", "node_clean", "node_update", "jam_url", "role"]
   }   
 
-  group "stress-proxy" {
+  group "demo-proxy" {
     count = 1 
     constraint {
        attribute = "${meta.role}"
@@ -20,13 +19,13 @@ job "stress-test-proxy-0" {
     meta {
       jam_url = "http://192.168.20.0/chains"
       bin_url = "http://192.168.20.0/chains"
-      jam_id = "stress-test-2"
+      jam_id = "demo-net"
       node_update = true
       node_clean = true
       data_dir = "/mnt/nvme_drive_1"
     }
 
-    task "stress-test-proxy-task" {
+    task "demo-test-proxy-task" {
       driver = "raw_exec"
       kill_signal = "SIGKILL"
 
@@ -52,7 +51,7 @@ curl -fsSL -o "local/${NOMAD_META_jam_id}/keys/proxy.seed" "$SEED_URL"
 
 
 env
-./local/polkajam -c local --chain spec.json run --data-path data --mode=proxy  --port 5556 --peer-id ekn4mu4jwfwy6ldhq7kpnv5zmgakktkz72kfnlzkse6lqyqmme2ra --external-ip 0.0.0.0
+./local/polkajam -c local --chain local/spec.json run --data-path data --mode=proxy  --port 5556 --peer-id ekn4mu4jwfwy6ldhq7kpnv5zmgakktkz72kfnlzkse6lqyqmme2ra --external-ip 0.0.0.0
 sleep 300
 
 # run the process
@@ -67,7 +66,7 @@ EOH
 
       env {
         RUST_BACKTRACE = "full"
-        RUST_LOG = "jam_node=debug,stress_proxy=debug"
+        RUST_LOG = "jam_node=debug,demo_proxy=debug"
       }
    resources {
    # cpu = 30000
@@ -79,9 +78,9 @@ EOH
   logs {
     max_files     = 5
     max_file_size = 10
+   }
   }
-    }
-  }
+ }
 }
 
 

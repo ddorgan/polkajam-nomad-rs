@@ -6,6 +6,7 @@ use deploy_server::deploy::stress::{
     stress_run_target, stress_status, RunTargetParams, StressKind,
 };
 use deploy_server::nomad::{nomad_addr, which_nomad};
+use deploy_server::nomad_nodes::{available_nomad_hosts, normalize_meta_role, CHAIN_NOMAD_META_ROLE};
 use serde_json::{json, Map, Value};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -98,6 +99,17 @@ enum ChainCommands {
         /// Generate 6 validators instead of `--num-validators`
         #[arg(long)]
         tiny: bool,
+        /// Use ready Nomad nodes (`/v1/client/metadata` dynamic meta role=validators) for net_addr IPs
+        #[arg(long)]
+        use_nomad_hosts: bool,
+        /// Dynamic meta role to match (default: validators)
+        #[arg(long, default_value = CHAIN_NOMAD_META_ROLE)]
+        nomad_meta_role: String,
+    },
+    /// List ready Nomad hosts by dynamic metadata role (default: validators)
+    Hosts {
+        #[arg(long, default_value = CHAIN_NOMAD_META_ROLE)]
+        role: String,
     },
     /// List chains in OUTPUT_DIR
     List,
@@ -242,6 +254,8 @@ async fn main() -> ExitCode {
                 ip_start,
                 ip_end,
                 tiny,
+                use_nomad_hosts,
+                nomad_meta_role,
             } => {
                 let params = GenTestnetParams {
                     chain_id: chain_id.clone(),
@@ -250,6 +264,8 @@ async fn main() -> ExitCode {
                     ip_start: ip_start.clone(),
                     ip_end: ip_end.clone(),
                     tiny: *tiny,
+                    use_nomad_hosts: *use_nomad_hosts,
+                    nomad_meta_role: normalize_meta_role(nomad_meta_role),
                 };
                 match gen_testnet(&app_dir, params).await {
                     Ok(result) => {
@@ -257,6 +273,26 @@ async fn main() -> ExitCode {
                             print_json(&serde_json::to_value(&result).unwrap());
                         } else {
                             print_chain_create(&result);
+                        }
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => exit_error(&cli, e),
+                }
+            }
+            ChainCommands::Hosts { role } => {
+                let result = available_nomad_hosts(role).await;
+                match result {
+                    Ok(hosts) => {
+                        if cli.json {
+                            print_json(&serde_json::to_value(&hosts).unwrap());
+                        } else {
+                            println!("nomad hosts ({}):", hosts.len());
+                            for h in hosts {
+                                println!(
+                                    "  {}\t{}\t{}\t{}",
+                                    h.client_ip, h.name, h.status, h.datacenter
+                                );
+                            }
                         }
                         ExitCode::SUCCESS
                     }
@@ -492,4 +528,11 @@ fn print_chain_create(result: &deploy_server::deploy::GenTestnetResult) {
     println!("  chainspec:   {}", result.saved_files.chainspec);
     println!("  zip:         {}", result.saved_files.zip);
     println!("  key seeds:   {}", result.keys.len());
+    if let Some(hosts) = &result.nomad_hosts {
+        println!(
+            "  nomad hosts: {} (dynamic meta role={})",
+            hosts.len(),
+            hosts.first().map(|h| h.role.as_str()).unwrap_or(CHAIN_NOMAD_META_ROLE)
+        );
+    }
 }
