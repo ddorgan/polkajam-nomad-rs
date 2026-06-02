@@ -18,7 +18,6 @@ job "demo-test-proxy-0" {
      }
     meta {
       jam_url = "http://192.168.20.0/chains"
-      bin_url = "http://192.168.20.0/chains"
       jam_id = "demo-net"
       node_update = true
       node_clean = true
@@ -29,14 +28,18 @@ job "demo-test-proxy-0" {
       driver = "raw_exec"
       kill_signal = "SIGKILL"
 
- 
-template {
+      artifact {
+        source      = "${NOMAD_META_jam_url}/${NOMAD_META_jam_id}/polkajam"
+        destination = "local/polkajam"
+        mode        = "file"
+        chown       = true
+      }
+
+      template {
   data = <<EOH
 #!/bin/bash
 set -x
 mkdir -p local
-
-curl -fsSL -o local/polkajam "${NOMAD_META_bin_url}/${NOMAD_META_jam_id}/polkajam"
 
 mkdir -p "local/${NOMAD_META_jam_id}/keys"
 curl -fsSL -o local/spec.json "${NOMAD_META_jam_url}/${NOMAD_META_jam_id}/spec.json"

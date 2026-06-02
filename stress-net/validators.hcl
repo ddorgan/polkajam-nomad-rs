@@ -20,7 +20,6 @@ job "stress-test-2" {
      }
     meta {
       jam_url = "http://192.168.20.0/chains"
-      bin_url = "http://192.168.20.0/chains"
       jam_id = "stress-test-2"
       jam_log = "jam_node::rpc=debug,jsonrpsee_server=debug"
       node_update = true
@@ -33,16 +32,20 @@ job "stress-test-2" {
       driver = "raw_exec"
       kill_signal = "SIGKILL"
 
- 
-template {
+      artifact {
+        source      = "${NOMAD_META_jam_url}/${NOMAD_META_jam_id}/polkajam"
+        destination = "local/polkajam"
+        mode        = "file"
+        chown       = true
+      }
+
+      template {
   data = <<EOH
 #!/bin/bash
 set -euo pipefail
 set -x
 
 mkdir -p local
-
-curl -fsSL -o local/polkajam "${NOMAD_META_bin_url}/${NOMAD_META_jam_id}/polkajam"
 
 mkdir -p "local/${NOMAD_META_jam_id}/keys"
 curl -fsSL -o local/spec.json "${NOMAD_META_jam_url}/${NOMAD_META_jam_id}/spec.json"

@@ -1,7 +1,6 @@
-# stress-net deployment examples
+# deploy-cli examples
 
-These scripts use `deploy-cli`, the command-line interface for deploying
-stress-net Nomad jobs. Build it once from the repo root:
+These scripts use `deploy-cli` from `server/`. Build once from the repo root:
 
 ```bash
 cd server && cargo build --release
@@ -16,11 +15,32 @@ export PATH="$PWD/server/target/release:$PATH"
 
 ## Prerequisites
 
-- `nomad` on `PATH`
-- Nomad cluster reachable via `$NOMAD_ADDR` (and `$NOMAD_TOKEN` if required)
 - Run from the repo root, or set `APP_DIR` to the repo root
+- **stress-net**: `nomad` on `PATH`, cluster reachable via `$NOMAD_ADDR` (and `$NOMAD_TOKEN` if required)
+- **chain**: `polkajam` on `PATH` (or under `OUTPUT_DIR` from a cargo build); for `--use-nomad-hosts`, Nomad API access as above
 
-## Commands
+## Chain (gen-testnet)
+
+| Script | What it does |
+|--------|----------------|
+| `chain/list.sh` | `deploy-cli chain list` |
+| `chain/hosts.sh` | `deploy-cli chain hosts` (Nomad nodes with dynamic `role=validators`) |
+| `chain/create-tiny.sh` | 6 validators, IP range (`CHAIN_ID` env, default `testnet`) |
+| `chain/create-tiny-nomad-hosts.sh` | 6 validators from Nomad host IPs |
+| `chain/create-stress-test-2.sh` | 1023 validators for `stress-test-2` |
+
+```bash
+chmod +x examples/chain/*.sh
+./examples/chain/list.sh
+./examples/chain/hosts.sh
+CHAIN_ID=mynet ./examples/chain/create-tiny.sh
+./examples/chain/create-tiny-nomad-hosts.sh
+./examples/chain/create-stress-test-2.sh
+```
+
+See the main [README](../README.md#cli-chain--gen-testnet) for full `chain` CLI flags and Nomad metadata notes.
+
+## Stress-net commands
 
 | Script | What it does |
 |--------|----------------|
