@@ -188,7 +188,7 @@ async fn run_server(app_dir: PathBuf) {
         .route("/api/stress/run-target", post(api_stress_run_target))
         .route("/api/stress/status", get(api_stress_status))
         .route("/api/chains", get(api_chains))
-        .route("/api/chains/:chain_id/chainspec", get(api_chainspec))
+        .route("/api/chains/{chain_id}/chainspec", get(api_chainspec))
         .route("/api/gen-testnet", post(api_gen_testnet))
         .route("/api/nomad/hosts", get(api_nomad_hosts))
         .layer(TraceLayer::new_for_http())
